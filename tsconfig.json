@@ -8,8 +8,13 @@
     "outDir": "dist",
     "baseUrl": "./src",
     "paths": {
-      "@model/*": ["model/*"]
+      "@model/*": ["model/*"],
+      "@adapter/*": ["adapter/*"],
+      "@driver/*": ["driver/*"]
     }
   },
-  "lib": ["es2015"]
+  "lib": ["es2015"],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  }
 }

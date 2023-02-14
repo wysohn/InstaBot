@@ -14,7 +14,7 @@ export interface IAgentContext {
 }
 
 export interface IAgentPredicate {
-  test(context: {}): Promise<boolean>;
+  test(context: IAgentContext | any): Promise<boolean>;
 }
 
 export type EventMessage = "tick";
@@ -58,10 +58,12 @@ export default class Agent {
   }
 
   async getConext(key: string): Promise<any> {
+    // eslint-disable-next-line
     return this.context[key];
   }
 
   async setContext(key: string, value: any): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.context[key] = value;
   }
 
@@ -80,6 +82,6 @@ export default class Agent {
       }
     }
 
-    this.context.session?.close();
+    await this.context.session?.close();
   }
 }

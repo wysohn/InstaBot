@@ -12,6 +12,7 @@ import {
   ElementHandle,
   NodeFor,
   Protocol,
+  ClickOptions,
 } from "puppeteer";
 import puppeteerExtra from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
@@ -21,6 +22,9 @@ const MAIN_URL = "https://www.instagram.com/";
 const LOGIN_URL = "https://www.instagram.com/accounts/login/";
 const EXPLORE_URL = "https://www.instagram.com/explore/tags/{}";
 const USER_PROFILE_URL = "https://www.instagram.com/{}/";
+
+const delayOption = { delay: 100 };
+const clickOption: ClickOptions = { button: "left" };
 
 async function getElementOrUndefined(
   page: Page,
@@ -57,6 +61,10 @@ export class InstagramPost implements IPost {
     this.url = url;
   }
 
+  async getPostTime(initiator: ISession): Promise<Date> {
+    return await this.instagram.getPostTime(initiator, this.url);
+  }
+
   async like(initiator: ISession): Promise<boolean> {
     return await this.instagram.likePost(initiator, this.url);
   }
@@ -72,6 +80,10 @@ export class InstagramPost implements IPost {
       comment
     );
   }
+
+  toString(): string {
+    return this.url;
+  }
 }
 
 export class InstagramAccount implements IAccount {
@@ -85,7 +97,7 @@ export class InstagramAccount implements IAccount {
   }
 }
 
-class PuppeteerCookieMemento implements ICookieMemento {
+export class PuppeteerCookieMemento implements ICookieMemento {
   constructor(readonly cookies: Protocol.Network.Cookie[]) {}
 }
 
@@ -102,7 +114,6 @@ class PuppeteerSession implements ISession {
   async login(): Promise<void> {
     const { principal, password } = this.account;
 
-    const delayOption = { delay: 100 };
     await this.page.goto(LOGIN_URL);
 
     const searchBar = await getElementOrUndefined(
@@ -127,7 +138,7 @@ class PuppeteerSession implements ISession {
     );
     await this.page.click("button[type=submit]", {
       ...delayOption,
-      button: "left",
+      ...clickOption,
     });
 
     const loginFailed = await getElementOrUndefined(
@@ -142,9 +153,11 @@ class PuppeteerSession implements ISession {
     await this.page.waitForSelector("main");
   }
 
-  async updateCookie(cookie: ICookieMemento): Promise<void> {
-    const cookies = (cookie as PuppeteerCookieMemento).cookies;
-    await this.page.setCookie(...cookies);
+  async updateCookie(cookie?: ICookieMemento): Promise<void> {
+    if (cookie) {
+      const cookies = (cookie as PuppeteerCookieMemento).cookies;
+      await this.page.setCookie(...cookies);
+    }
   }
 
   async getCookie(): Promise<ICookieMemento> {
@@ -154,13 +167,13 @@ class PuppeteerSession implements ISession {
 
   async isValid(): Promise<boolean> {
     await this.page.goto(MAIN_URL);
-    await this.page.waitForNavigation();
 
-    const loginButton = await this.page.waitForSelector(
-      "a[href='/accounts/login/']",
-      { timeout: 1000 }
+    const loginButton = await getElementOrUndefined(
+      this.page,
+      "a[href='/accounts/login/']"
     );
-    return loginButton === null;
+
+    return loginButton === undefined;
   }
 
   close(): Promise<void> {
@@ -171,7 +184,7 @@ class PuppeteerSession implements ISession {
 export default class InstagramAPI implements IInstagramGateway {
   constructor(private readonly debugging: boolean = false) {}
 
-  async login(account: IAccount): Promise<ISession> {
+  async initSession(account: IAccount): Promise<ISession> {
     const puppeteer = puppeteerExtra.use(StealthPlugin()).use(AdblockPlugin());
     const browser = await puppeteer.launch({
       headless: !this.debugging,
@@ -181,7 +194,6 @@ export default class InstagramAPI implements IInstagramGateway {
 
     const session = new PuppeteerSession(account, browser, page);
 
-    await session.login();
     return session;
   }
 
@@ -192,7 +204,6 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(USER_PROFILE_URL.replace("{}", userId.id));
-    await page.waitForNavigation();
 
     const header = await page.waitForSelector("header", { timeout: 1000 });
     const links = await header?.$$("a[href^='/']");
@@ -209,16 +220,18 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(userUrl);
-    await page.waitForNavigation();
 
-    const header = await page.waitForSelector("header", { timeout: 1000 });
+    const header = await page.waitForSelector("header");
     const buttons = await header?.$$("button");
     const followButton = buttons?.[0];
-    if (
-      followButton &&
-      (await followButton?.evaluate((node) => node.innerText)) === "Follow"
-    ) {
-      await followButton.click();
+    const buttonText = await followButton?.evaluate((node) => node.innerText);
+
+    if (buttonText !== "Follow" && buttonText !== "Following") {
+      throw new Error("Invalid button text: " + buttonText);
+    }
+
+    if (followButton && buttonText === "Follow") {
+      await followButton.click({ ...delayOption, ...clickOption });
       return true;
     } else {
       return false;
@@ -229,7 +242,6 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(userUrl);
-    await page.waitForNavigation();
 
     const header = await page.waitForSelector("header", { timeout: 1000 });
     const buttons = await header?.$$("button");
@@ -238,7 +250,7 @@ export default class InstagramAPI implements IInstagramGateway {
       followButton &&
       (await followButton?.evaluate((node) => node.innerText)) === "Following"
     ) {
-      await followButton.click();
+      await followButton.click({ ...delayOption, ...clickOption });
       return true;
     } else {
       return false;
@@ -249,10 +261,10 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(EXPLORE_URL.replace("{}", keyword));
-    await page.waitForNavigation();
+    await page.waitForSelector("a[href^='/p/'][role='link']");
 
     const posts = await page.evaluate(() => {
-      const posts = document.querySelectorAll("a[href^='/p/' role='link']");
+      const posts = document.querySelectorAll("a[href^='/p/'][role='link']");
       return Array.from(posts).map((post) => {
         const link = post.getAttribute("href");
         return {
@@ -264,17 +276,33 @@ export default class InstagramAPI implements IInstagramGateway {
     return posts.map((post) => new InstagramPost(this, post.url));
   }
 
+  async getPostTime(session: ISession, postUrl: string): Promise<Date> {
+    const { page } = session as PuppeteerSession;
+
+    await page.goto(postUrl);
+    // wait random seconds between 2 and 5
+    await new Promise((r) => setTimeout(r, Math.random() * 3000 + 2000));
+
+    const time = await page.waitForSelector("time", { timeout: 1000 });
+    const dateTime = await time.evaluate((node) =>
+      node.getAttribute("datetime")
+    );
+
+    return new Date(dateTime);
+  }
+
   async likePost(session: ISession, postUrl: string): Promise<boolean> {
     const { page } = session as PuppeteerSession;
 
     await page.goto(postUrl);
-    await page.waitForNavigation();
 
     const likeButtonSvg = await page.waitForSelector("svg[aria-label='Like']", {
       timeout: 3000,
     });
     if (likeButtonSvg) {
-      await likeButtonSvg.click();
+      const parentDiv = await likeButtonSvg.$("xpath=..");
+      const likeButton = await parentDiv.$("xpath=..");
+      await likeButton.click({ ...delayOption, ...clickOption });
       return true;
     } else {
       return false;
@@ -285,7 +313,6 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(postUrl);
-    await page.waitForNavigation();
 
     const likeButtonSvg = await page.waitForSelector(
       "svg[aria-label='Unlike']",
@@ -294,7 +321,9 @@ export default class InstagramAPI implements IInstagramGateway {
       }
     );
     if (likeButtonSvg) {
-      await likeButtonSvg.click();
+      const parentDiv = await likeButtonSvg.$("xpath=..");
+      const likeButton = await parentDiv.$("xpath=..");
+      await likeButton.click({ ...delayOption, ...clickOption });
       return true;
     } else {
       return false;
@@ -306,6 +335,25 @@ export default class InstagramAPI implements IInstagramGateway {
     postUrl: string,
     comment: string
   ): Promise<void> {
-    throw new Error("Method not implemented.");
+    const { page } = session as PuppeteerSession;
+
+    await page.goto(postUrl);
+
+    const form = await page.waitForSelector("form[method='POST']", {
+      timeout: 3000,
+    });
+
+    const commentInput = await form.waitForSelector(
+      "textarea[aria-label='Add a comment…']",
+      {
+        timeout: 3000,
+      }
+    );
+    await commentInput?.type(comment, delayOption);
+
+    const submitButton = await form.waitForSelector("div[role='button']", {
+      timeout: 3000,
+    });
+    await submitButton?.click({ ...delayOption, ...clickOption });
   }
 }

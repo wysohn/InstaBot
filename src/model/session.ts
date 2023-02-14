@@ -5,8 +5,15 @@ export interface ICookieMemento {}
 export default interface ISession {
   login(): Promise<void>;
 
-  updateCookie(cookie: ICookieMemento): Promise<void>;
+  /**
+   * Replace the cookie of this session with the given cookie
+   * @param cookie the new cookie
+   */
+  updateCookie(cookie: ICookieMemento | undefined): Promise<void>;
 
+  /**
+   * Get the cookie of this session. Maybe empty if the session is newly initialized.
+   */
   getCookie(): Promise<ICookieMemento>;
 
   /**

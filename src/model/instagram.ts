@@ -5,7 +5,7 @@ import ISession from "./session";
 import IUser, { IUserId } from "./user";
 
 export interface IInstagramGateway {
-  login(account: IAccount): Promise<ISession>;
+  initSession(account: IAccount): Promise<ISession>;
   getUser(session: ISession, userId: IUserId): Promise<IUser | undefined>;
   followUser(session: ISession, userUrl: string): PromiseLike<boolean>;
   unfollowUser(session: ISession, userUrl: string): PromiseLike<boolean>;
@@ -22,8 +22,16 @@ export interface IInstagramGateway {
 export default class Instagram {
   constructor(private readonly gateway: IInstagramGateway) {}
 
+  /**
+   * Initialize session for the account. Notice that this does not authenticate the session.
+   * You either have to call ISession#login() to authenticate the session or use the saved cookies with
+   * ISession#updateCookie() to reload the previous session cookie.
+   *
+   * @param account Account to initialize session for
+   * @returns Initialized session
+   */
   async init(account: IAccount): Promise<ISession> {
-    return await this.gateway.login(account);
+    return await this.gateway.initSession(account);
   }
 
   async getUser(
