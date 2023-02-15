@@ -71,10 +71,7 @@ export class LoginAction implements IAgentAction {
       }
 
       logger.info("Starting login process").catch(console.error);
-      const newSession = await instagram.init(this.account);
-
-      if (newSession && (await newSession.isValid())) {
-        await responder.setContext("session", newSession);
+      if (await session.login()) {
         logger.info("Login success").catch(console.error);
       } else {
         logger.error("Login failed").catch(console.error);

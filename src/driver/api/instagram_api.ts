@@ -133,7 +133,7 @@ class PuppeteerSession implements ISession {
     this.page = page;
   }
 
-  async login(): Promise<void> {
+  async login(): Promise<boolean> {
     const { principal, password } = this.account;
 
     await this.page.goto(LOGIN_URL);
@@ -168,11 +168,12 @@ class PuppeteerSession implements ISession {
       "p[id=slfErrorAlert]"
     );
     if (loginFailed) {
-      throw new Error("Login failed");
+      return false;
     }
 
     await loginWait;
     await this.page.waitForSelector("main");
+    return true;
   }
 
   async updateCookie(cookie?: ICookieMemento): Promise<void> {
@@ -189,13 +190,14 @@ class PuppeteerSession implements ISession {
 
   async isValid(): Promise<boolean> {
     await this.page.goto(MAIN_URL);
+    await this.page.waitForSelector("article");
 
-    const loginButton = await getElementOrUndefined(
+    const passwordField = await getElementOrUndefined(
       this.page,
-      "a[href='/accounts/login/']"
+      "input[type='password']"
     );
 
-    return loginButton === undefined;
+    return passwordField === undefined;
   }
 
   close(): Promise<void> {

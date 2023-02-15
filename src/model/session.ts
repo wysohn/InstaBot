@@ -3,7 +3,7 @@ import Cookie from "./cookie";
 export interface ICookieMemento {}
 
 export default interface ISession {
-  login(): Promise<void>;
+  login(): Promise<boolean>;
 
   /**
    * Replace the cookie of this session with the given cookie
