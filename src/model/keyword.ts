@@ -9,7 +9,7 @@ export default class Keyword {
   constructor(private readonly gateway: IKeywordGateway) {}
 
   async init(): Promise<void> {
-    this.keywords = await this.gateway.getKeywords();
+    this.keywords = (await this.gateway.getKeywords()) ?? [];
     this.index = 0;
   }
 

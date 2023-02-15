@@ -37,32 +37,54 @@ async function getElementOrUndefined(
   }
 }
 
+async function retry(func: Function, times: number) {
+  for (let i = 0; i < times; i++) {
+    try {
+      return await func();
+    } catch (e) {
+      if (i == times - 1) {
+        throw e;
+      }
+    }
+  }
+}
+
 export class InstagramUser implements IUser {
   constructor(private readonly instagram: InstagramAPI, readonly id: string) {}
 
   async follow(initiator: ISession): Promise<boolean> {
-    return await this.instagram.followUser(initiator, this.id);
+    return await this.instagram.followUser(
+      initiator,
+      USER_PROFILE_URL.replace("{}", this.id)
+    );
   }
 
   async unfollow(initiator: ISession): Promise<boolean> {
-    return await this.instagram.unfollowUser(initiator, this.id);
+    return await this.instagram.unfollowUser(
+      initiator,
+      USER_PROFILE_URL.replace("{}", this.id)
+    );
   }
 
   async listPosts(initiator: ISession): Promise<IPost[]> {
-    return await this.instagram.getPosts(initiator, this.id);
+    return await this.instagram.getPostsByUser(
+      initiator,
+      USER_PROFILE_URL.replace("{}", this.id)
+    );
   }
 }
 
 export class InstagramPost implements IPost {
-  constructor(
-    private readonly instagram: InstagramAPI,
-    private readonly url: string
-  ) {
+  constructor(private readonly instagram: InstagramAPI, readonly url: string) {
     this.url = url;
   }
 
   async getPostTime(initiator: ISession): Promise<Date> {
     return await this.instagram.getPostTime(initiator, this.url);
+  }
+
+  async getOwner(initiator: ISession): Promise<IUser> {
+    return await this.instagram.getPostOwner(initiator, this.url);
   }
 
   async like(initiator: ISession): Promise<boolean> {
@@ -181,6 +203,7 @@ class PuppeteerSession implements ISession {
   }
 }
 
+const OWNER_NAME_REGEX = /(https:\/\/)(www\.instagram\.com\/)(.+)(\/)/;
 export default class InstagramAPI implements IInstagramGateway {
   constructor(private readonly debugging: boolean = false) {}
 
@@ -232,6 +255,19 @@ export default class InstagramAPI implements IInstagramGateway {
 
     if (followButton && buttonText === "Follow") {
       await followButton.click({ ...delayOption, ...clickOption });
+
+      const waitStart = new Date();
+      while (true) {
+        if (
+          !(await followButton?.evaluate((node) =>
+            node.classList.contains("disabled")
+          ))
+        )
+          break;
+
+        if (new Date().getTime() - waitStart.getTime() > 10000)
+          throw new Error("Timeout");
+      }
       return true;
     } else {
       return false;
@@ -276,6 +312,24 @@ export default class InstagramAPI implements IInstagramGateway {
     return posts.map((post) => new InstagramPost(this, post.url));
   }
 
+  async getPostsByUser(session: ISession, userUrl: string): Promise<IPost[]> {
+    const { page } = session as PuppeteerSession;
+
+    await page.goto(userUrl);
+    await page.waitForSelector("a[href^='/p/'][role='link']");
+    const posts = await page.evaluate(() => {
+      const posts = document.querySelectorAll("a[href^='/p/'][role='link']");
+      return Array.from(posts).map((post) => {
+        const link = post.getAttribute("href");
+        return {
+          url: `https://www.instagram.com${link}`,
+        };
+      });
+    });
+
+    return posts.map((post) => new InstagramPost(this, post.url));
+  }
+
   async getPostTime(session: ISession, postUrl: string): Promise<Date> {
     const { page } = session as PuppeteerSession;
 
@@ -291,18 +345,41 @@ export default class InstagramAPI implements IInstagramGateway {
     return new Date(dateTime);
   }
 
+  async getPostOwner(initiator: ISession, url: string): Promise<IUser> {
+    const { page } = initiator as PuppeteerSession;
+
+    await page.goto(url);
+
+    const header = await page.waitForSelector("header");
+    const links = await header?.$$("a[href^='/']");
+    const userLink = links?.[0];
+    if (userLink) {
+      const userUrl = await userLink?.evaluate((node) => node.href);
+      const matches = userUrl?.match(OWNER_NAME_REGEX);
+      return new InstagramUser(this, matches?.[3]);
+    } else {
+      throw new Error("Cannot get post owner");
+    }
+  }
+
   async likePost(session: ISession, postUrl: string): Promise<boolean> {
     const { page } = session as PuppeteerSession;
 
     await page.goto(postUrl);
 
-    const likeButtonSvg = await page.waitForSelector("svg[aria-label='Like']", {
-      timeout: 3000,
-    });
+    const likeButtonSvg = await getElementOrUndefined(
+      page,
+      "svg[aria-label='Like'][width='24']"
+    );
     if (likeButtonSvg) {
       const parentDiv = await likeButtonSvg.$("xpath=..");
       const likeButton = await parentDiv.$("xpath=..");
-      await likeButton.click({ ...delayOption, ...clickOption });
+
+      await retry(async () => {
+        await likeButton.click({ ...delayOption, ...clickOption });
+        await page.waitForSelector("svg[aria-label='Unlike'][width='24']");
+      }, 3);
+
       return true;
     } else {
       return false;
@@ -314,16 +391,16 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(postUrl);
 
-    const likeButtonSvg = await page.waitForSelector(
-      "svg[aria-label='Unlike']",
-      {
-        timeout: 3000,
-      }
+    const likeButtonSvg = await getElementOrUndefined(
+      page,
+      "svg[aria-label='Unlike'][width='24']"
     );
+
     if (likeButtonSvg) {
       const parentDiv = await likeButtonSvg.$("xpath=..");
       const likeButton = await parentDiv.$("xpath=..");
       await likeButton.click({ ...delayOption, ...clickOption });
+      await page.waitForSelector("svg[aria-label='Like'][width='24']");
       return true;
     } else {
       return false;
@@ -355,5 +432,9 @@ export default class InstagramAPI implements IInstagramGateway {
       timeout: 3000,
     });
     await submitButton?.click({ ...delayOption, ...clickOption });
+
+    await page.waitForSelector("div[data-visualcompletion='loading-state'", {
+      hidden: true,
+    });
   }
 }

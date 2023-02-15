@@ -1,4 +1,5 @@
 import IAccount from "@model/account";
+import ICommenter from "@model/commenter";
 import Cookie from "@model/cookie";
 import Instagram from "@model/instagram";
 import Keyword from "@model/keyword";
@@ -8,16 +9,15 @@ import ISession from "@model/session";
 export interface IAgentContext {
   logger: Logger;
   instagram: Instagram;
-  keyword: Keyword;
   cookie: Cookie;
+  commenter: ICommenter;
+  keyword: Keyword;
   session?: ISession;
 }
 
-export interface IAgentPredicate {
-  test(context: IAgentContext | any): Promise<boolean>;
-}
-
 export type EventMessage = "tick";
+
+export type AgentPredicate = (context: IAgentContext | any) => Promise<boolean>;
 
 export interface IAgentAction {
   handler(event: AgentEvent): Promise<void>;
@@ -32,9 +32,13 @@ export class AgentEvent {
 
 export class AgentState {
   constructor(
-    readonly transitions: Map<IAgentPredicate, AgentState>,
+    readonly transitions: Map<AgentPredicate, () => AgentState>,
     readonly actions: IAgentAction[]
   ) {}
+
+  toString(): string {
+    return this.constructor.name;
+  }
 }
 
 export default class Agent {
@@ -51,13 +55,14 @@ export default class Agent {
     return {
       logger: this.context.logger,
       instagram: this.context.instagram,
-      keyword: this.context.keyword,
       cookie: this.context.cookie,
+      commenter: this.context.commenter,
+      keyword: this.context.keyword,
       session: this.context.session,
     };
   }
 
-  async getConext(key: string): Promise<any> {
+  async getContext(key: string): Promise<any> {
     // eslint-disable-next-line
     return this.context[key];
   }
@@ -69,19 +74,24 @@ export default class Agent {
 
   async run(): Promise<void> {
     while (this.state) {
-      for (const transition of this.state.transitions) {
-        const [predicate, next] = transition;
-        if (await predicate.test({ ...this.context })) {
-          this.state = next;
-          break;
-        }
-      }
-
       for (const action of this.state.actions) {
         await action.handler(new AgentEvent(this, "tick"));
       }
+
+      for (const transition of this.state.transitions) {
+        const [predicate, next] = transition;
+        if (await predicate({ ...this.context })) {
+          const nextState = next();
+          this.context.logger.info(
+            `Agent state changed: ${this.state} -> ${nextState}`
+          );
+          this.state = nextState;
+          break;
+        }
+      }
     }
 
+    await this.context.logger.info("Agent stopped");
     await this.context.session?.close();
   }
 }
