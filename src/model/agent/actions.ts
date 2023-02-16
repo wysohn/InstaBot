@@ -173,7 +173,7 @@ export class FilterPostsAction implements IAgentAction {
         .slice(0, this.options.limit)
         .map((post) => post.post);
 
-      await responder.setContext(KEY_POSTS, filtered);
+      await responder.setContext(this.options.postsKey, filtered);
     }
   }
 }
