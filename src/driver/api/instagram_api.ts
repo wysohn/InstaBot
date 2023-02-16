@@ -51,6 +51,10 @@ async function retry(func: () => Promise<any>, times: number) {
   }
 }
 
+async function waitFor(waitSecs: number = 3) {
+  await new Promise((r) => setTimeout(r, waitSecs * 1000));
+}
+
 export class InstagramUser implements IUser {
   private followed?: boolean = false;
 
@@ -65,6 +69,7 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
+    await waitFor(3);
 
     this.followed = true;
     return result;
@@ -79,6 +84,7 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
+    await waitFor(3);
 
     this.followed = false;
     return result;
@@ -93,14 +99,19 @@ export class InstagramUser implements IUser {
       session,
       USER_PROFILE_URL.replace("{}", this.id)
     );
+    await waitFor(3);
+
     return this.followed;
   }
 
   async listPosts(initiator: ISession): Promise<IPost[]> {
-    return await this.instagram.getPostsByUser(
+    const result = await this.instagram.getPostsByUser(
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
+    await waitFor(3);
+
+    return result;
   }
 }
 
@@ -119,6 +130,8 @@ export class InstagramPost implements IPost {
     }
 
     this.postTime = await this.instagram.getPostTime(initiator, this.url);
+    await waitFor(3);
+
     return this.postTime;
   }
 
@@ -128,6 +141,8 @@ export class InstagramPost implements IPost {
     }
 
     this.owner = await this.instagram.getPostOwner(initiator, this.url);
+    await waitFor(3);
+
     return this.owner;
   }
 
@@ -137,6 +152,8 @@ export class InstagramPost implements IPost {
     }
 
     const result = await this.instagram.likePost(initiator, this.url);
+    await waitFor(3);
+
     this.liked = true;
 
     return result;
@@ -148,17 +165,22 @@ export class InstagramPost implements IPost {
     }
 
     const result = await this.instagram.unlikePost(initiator, this.url);
+    await waitFor(3);
+
     this.liked = false;
 
     return result;
   }
 
   async writeComment(initiator: ISession, comment: string): Promise<void> {
-    return await this.instagram.writeCommentToPost(
+    const result = await this.instagram.writeCommentToPost(
       initiator,
       this.url,
       comment
     );
+    await waitFor(3);
+
+    return result;
   }
 
   toString(): string {
@@ -396,10 +418,6 @@ export default class InstagramAPI implements IInstagramGateway {
       throw new Error("Invalid button text: " + buttonText);
     }
 
-    // give 1 ~ 3 seconds delay (banned if too fast)
-    await new Promise((resolve) =>
-      setTimeout(resolve, Math.random() * 2000 + 1000)
-    );
     return buttonText === "Following";
   }
 
@@ -444,8 +462,6 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(postUrl);
-    // wait random seconds between 2 and 5
-    await new Promise((r) => setTimeout(r, Math.random() * 3000 + 2000));
 
     const time = await page.waitForSelector("time", { timeout: 1000 });
     const dateTime = await time.evaluate((node) =>
