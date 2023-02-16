@@ -22,27 +22,58 @@ const cookie = new Cookie(new CookieRepository());
   }
   await cookie.saveCookie(account, await session.getCookie());
 
-  const posts = await insta.getPosts(session, "championsleague");
-  for (const post of posts) {
-    console.log(await post.getPostTime(session));
-    console.log(post);
-  }
-
-  // await insta
-  //   .likePost(session, "https://www.instagram.com/p/CohlTg_pNcB/")
-  //   .then((result) => console.log(`already liked? ${result}`))
-  //   .catch(console.error);
+  /// tests here
 
   // await insta
   //   .followUser(session, "https://www.instagram.com/championsleague/")
   //   .then((result) => console.log(`already followed? ${result}`))
   //   .catch(console.error);
 
+  // await insta
+  //   .unfollowUser(session, "https://www.instagram.com/championsleague/")
+  //   .then((result) => console.log(`already unfollowed? ${result}`))
+  //   .catch(console.error);
+
+  // const posts = await insta.getPosts(session, "championsleague");
+  // for (const post of posts) {
+  //   console.log(await post.getPostTime(session));
+  //   console.log(post);
+  // }
+
+  // const posts = await insta.getPostsByUser(
+  //   session,
+  //   "https://www.instagram.com/championsleague/"
+  // );
+  // for (const post of posts) {
+  //   console.log(await post.getPostTime(session));
+  //   console.log(post);
+  // }
+
+  // await insta
+  //   .getPostTime(session, "https://www.instagram.com/p/CoswEoQrtzG/")
+  //   .then((result) => console.log(result))
+  //   .catch(console.error);
+
+  // await insta
+  //   .getPostOwner(session, "https://www.instagram.com/p/CosutcMIUCo/")
+  //   .then((result) => console.log(result))
+  //   .catch(console.error);
+
+  // await insta
+  //   .likePost(session, "https://www.instagram.com/p/CosutcMIUCo/")
+  //   .then((result) => console.log(`already liked? ${result}`))
+  //   .catch(console.error);
+
+  // await insta
+  //   .unlikePost(session, "https://www.instagram.com/p/CosutcMIUCo/")
+  //   .then((result) => console.log(`already unliked? ${result}`))
+  //   .catch(console.error);
+
   // insta
   //   .writeCommentToPost(
   //     session,
-  //     "https://www.instagram.com/p/CoShMtyomL9/",
-  //     "😍😍😍😍"
+  //     "https://www.instagram.com/p/CosutcMIUCo/",
+  //     "😍😍😍😍 Fascinating goal🔥🔥"
   //   )
   //   .catch(console.error);
 })().catch(console.error);

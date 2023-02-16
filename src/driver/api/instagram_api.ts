@@ -37,7 +37,7 @@ async function getElementOrUndefined(
   }
 }
 
-async function retry(func: Function, times: number) {
+async function retry(func: () => Promise<any>, times: number) {
   for (let i = 0; i < times; i++) {
     try {
       return await func();
@@ -45,6 +45,8 @@ async function retry(func: Function, times: number) {
       if (i == times - 1) {
         throw e;
       }
+
+      continue;
     }
   }
 }
@@ -258,18 +260,18 @@ export default class InstagramAPI implements IInstagramGateway {
     if (followButton && buttonText === "Follow") {
       await followButton.click({ ...delayOption, ...clickOption });
 
-      const waitStart = new Date();
-      while (true) {
-        if (
-          !(await followButton?.evaluate((node) =>
-            node.classList.contains("disabled")
-          ))
-        )
-          break;
+      await retry(async () => {
+        const isDisabled = await followButton?.evaluate((node) =>
+          node.classList.contains("disabled")
+        );
 
-        if (new Date().getTime() - waitStart.getTime() > 10000)
-          throw new Error("Timeout");
-      }
+        // wait for one second before retry
+        if (isDisabled) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          throw new Error("Button is disabled");
+        }
+      }, 100);
+
       return true;
     } else {
       return false;
@@ -281,14 +283,38 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(userUrl);
 
-    const header = await page.waitForSelector("header", { timeout: 1000 });
+    const header = await page.waitForSelector("header");
     const buttons = await header?.$$("button");
-    const followButton = buttons?.[0];
-    if (
-      followButton &&
-      (await followButton?.evaluate((node) => node.innerText)) === "Following"
-    ) {
-      await followButton.click({ ...delayOption, ...clickOption });
+    const unfollowMenuButton = buttons?.[0];
+    const buttonText = await unfollowMenuButton?.evaluate(
+      (node) => node.innerText
+    );
+
+    if (unfollowMenuButton && buttonText === "Following") {
+      await unfollowMenuButton.click({ ...delayOption, ...clickOption });
+      const dialog = await page.waitForSelector("div[role='dialog']");
+
+      await dialog.waitForSelector(
+        "div[role='button'][style='cursor: pointer;']"
+      );
+      const menuButtons = await dialog.$$(
+        "div[role='button'][style='cursor: pointer;']"
+      );
+      const unfollowButton = menuButtons?.[4];
+      await unfollowButton?.click({ ...delayOption, ...clickOption });
+
+      await retry(async () => {
+        const isDisabled = await unfollowMenuButton?.evaluate((node) =>
+          node.classList.contains("disabled")
+        );
+
+        // wait for one second before retry
+        if (isDisabled) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          throw new Error("Button is disabled");
+        }
+      }, 100);
+
       return true;
     } else {
       return false;
