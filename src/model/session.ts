@@ -2,6 +2,10 @@ import Cookie from "./cookie";
 
 export interface ICookieMemento {}
 
+export interface ScreenshotOptions {
+  path?: string;
+}
+
 export default interface ISession {
   login(): Promise<boolean>;
 
@@ -20,6 +24,12 @@ export default interface ISession {
    * Check if this session is still usable (headers, cookies, tokens, etc.)
    */
   isValid(): Promise<boolean>;
+
+  /**
+   * Take a screenshot. This is only valid if the session is a browser type of session.
+   * If the session is purely an API request session, this method will do nothing.
+   */
+  screenshot(options: ScreenshotOptions): Promise<void>;
 
   close(): Promise<void>;
 }

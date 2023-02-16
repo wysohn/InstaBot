@@ -2,7 +2,7 @@ import IAccount from "@model/account";
 import { IInstagramGateway } from "@model/instagram";
 import IPost from "@model/post";
 import Principal from "@model/principal";
-import ISession, { ICookieMemento } from "@model/session";
+import ISession, { ICookieMemento, ScreenshotOptions } from "@model/session";
 import IUser, { IUserId } from "@model/user";
 
 import {
@@ -234,8 +234,12 @@ class PuppeteerSession implements ISession {
     return passwordField === undefined;
   }
 
-  close(): Promise<void> {
-    return this.browser.close();
+  async screenshot(options: ScreenshotOptions): Promise<void> {
+    await this.page.screenshot(options);
+  }
+
+  async close(): Promise<void> {
+    return await this.browser.close();
   }
 }
 
@@ -496,21 +500,14 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(postUrl);
 
-    const form = await page.waitForSelector("form[method='POST']", {
-      timeout: 3000,
-    });
+    const form = await page.waitForSelector("form[method='POST']");
 
     const commentInput = await form.waitForSelector(
-      "textarea[aria-label='Add a comment…']",
-      {
-        timeout: 3000,
-      }
+      "textarea[aria-label='Add a comment…']"
     );
     await commentInput?.type(comment, delayOption);
 
-    const submitButton = await form.waitForSelector("div[role='button']", {
-      timeout: 3000,
-    });
+    const submitButton = await form.waitForSelector("div[role='button']");
     await submitButton?.click({ ...delayOption, ...clickOption });
 
     await page.waitForSelector("div[data-visualcompletion='loading-state'", {
