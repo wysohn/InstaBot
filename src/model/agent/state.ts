@@ -2,9 +2,11 @@ import IAccount from "@model/account";
 import { FollowHistory } from "@model/history";
 import IPost from "@model/post";
 import ISession from "@model/session";
+import IUser from "@model/user";
 import {
   CommentUserPostAction,
   DelayAction,
+  FilterPostsAction,
   FollowUserAction,
   GetUserPostsAction,
   InitSessionAction,
@@ -114,7 +116,18 @@ export class SearchFeedsState extends AgentState {
           () => new KeywordSelectionState(),
         ],
       ]),
-      [new SearchFeedsAction()]
+      [
+        new SearchFeedsAction(),
+        new FilterPostsAction({
+          postsKey: KEY_POSTS,
+          valueFilter: async (agent, post) => {
+            const { session } = await agent.getDefaultContext();
+
+            const owner: IUser = await post.getOwner(session);
+            return owner && !(await owner.isFollowed(session));
+          },
+        }),
+      ]
     );
   }
 }
@@ -162,6 +175,11 @@ export class SearchUserPostState extends AgentState {
   constructor() {
     super(buildMap([[async (ctx) => true, () => new SelectUserPostState()]]), [
       new GetUserPostsAction(),
+      new FilterPostsAction({
+        postsKey: KEY_USER_POSTS,
+        timeOrder: "desc",
+        limit: 3,
+      }),
     ]);
   }
 }

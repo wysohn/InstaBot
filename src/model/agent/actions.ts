@@ -2,7 +2,7 @@ import IAccount from "@model/account";
 import { FollowHistory, LikeHistory } from "@model/history";
 import IPost from "@model/post";
 import IUser from "@model/user";
-import { AgentEvent, IAgentAction } from "./agent";
+import Agent, { AgentEvent, IAgentAction } from "./agent";
 
 export class DelayAction implements IAgentAction {
   constructor(
@@ -123,6 +123,57 @@ export class SearchPostsAction implements IAgentAction {
       const selected = await responder.getContext(KEY_SELECTED_KEYWORD);
       const posts = await instagram.getPosts(session, selected);
       await responder.setContext(KEY_POSTS, posts);
+    }
+  }
+}
+
+export interface PostFilterOptions {
+  postsKey: string;
+  valueFilter?: (ctx: Agent, post: IPost) => Promise<boolean>;
+  timeOrder?: "asc" | "desc";
+  limit?: number;
+}
+
+export class FilterPostsAction implements IAgentAction {
+  constructor(private options: PostFilterOptions) {}
+
+  async handler({ responder, message }: AgentEvent): Promise<void> {
+    const { logger, session, instagram } = await responder.getDefaultContext();
+
+    if (!session) throw new Error("Session is not initialized");
+
+    if (message === "tick") {
+      const posts: IPost[] = await responder.getContext(this.options.postsKey);
+      if (!posts || posts.length === 0) {
+        logger.info("No posts to filter").catch(console.error);
+        return;
+      }
+
+      const postsEvaluated = [];
+      for (const post of posts) {
+        if (
+          this.options.valueFilter &&
+          !(await this.options.valueFilter(responder, post))
+        ) {
+          continue;
+        }
+
+        const time = await post.getPostTime(session);
+        postsEvaluated.push({ post, time });
+      }
+
+      const filtered = postsEvaluated
+        .sort((a, b) => {
+          if (this.options.timeOrder === "asc") {
+            return a.time.getTime() - b.time.getTime();
+          } else if (this.options.timeOrder === "desc") {
+            return b.time.getTime() - a.time.getTime();
+          }
+        })
+        .slice(0, this.options.limit)
+        .map((post) => post.post);
+
+      await responder.setContext(KEY_POSTS, filtered);
     }
   }
 }

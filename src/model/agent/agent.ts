@@ -82,7 +82,7 @@ export default class Agent {
         const [predicate, next] = transition;
         if (await predicate({ ...this.context })) {
           const nextState = next();
-          this.context.logger.info(
+          await this.context.logger.info(
             `Agent state changed: ${this.state} -> ${nextState}`
           );
           this.state = nextState;

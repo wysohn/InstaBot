@@ -52,18 +52,37 @@ async function retry(func: () => Promise<any>, times: number) {
 }
 
 export class InstagramUser implements IUser {
+  private followed?: boolean = false;
+
   constructor(private readonly instagram: InstagramAPI, readonly id: string) {}
 
   async follow(initiator: ISession): Promise<boolean> {
-    return await this.instagram.followUser(
+    const result = await this.instagram.followUser(
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
+
+    this.followed = true;
+    return result;
   }
 
   async unfollow(initiator: ISession): Promise<boolean> {
-    return await this.instagram.unfollowUser(
+    const result = await this.instagram.unfollowUser(
       initiator,
+      USER_PROFILE_URL.replace("{}", this.id)
+    );
+
+    this.followed = false;
+    return result;
+  }
+
+  async isFollowed(session: ISession): Promise<boolean> {
+    if (this.followed) {
+      return true;
+    }
+
+    return await this.instagram.isFollowed(
+      session,
       USER_PROFILE_URL.replace("{}", this.id)
     );
   }
@@ -77,16 +96,29 @@ export class InstagramUser implements IUser {
 }
 
 export class InstagramPost implements IPost {
+  private postTime?: Date;
+  private owner?: IUser;
+
   constructor(private readonly instagram: InstagramAPI, readonly url: string) {
     this.url = url;
   }
 
   async getPostTime(initiator: ISession): Promise<Date> {
-    return await this.instagram.getPostTime(initiator, this.url);
+    if (this.postTime) {
+      return this.postTime;
+    }
+
+    this.postTime = await this.instagram.getPostTime(initiator, this.url);
+    return this.postTime;
   }
 
   async getOwner(initiator: ISession): Promise<IUser> {
-    return await this.instagram.getPostOwner(initiator, this.url);
+    if (this.owner) {
+      return this.owner;
+    }
+
+    this.owner = await this.instagram.getPostOwner(initiator, this.url);
+    return this.owner;
   }
 
   async like(initiator: ISession): Promise<boolean> {
@@ -261,13 +293,13 @@ export default class InstagramAPI implements IInstagramGateway {
       await followButton.click({ ...delayOption, ...clickOption });
 
       await retry(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
         const isDisabled = await followButton?.evaluate((node) =>
           node.classList.contains("disabled")
         );
 
-        // wait for one second before retry
         if (isDisabled) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
           throw new Error("Button is disabled");
         }
       }, 100);
@@ -304,13 +336,14 @@ export default class InstagramAPI implements IInstagramGateway {
       await unfollowButton?.click({ ...delayOption, ...clickOption });
 
       await retry(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
         const isDisabled = await unfollowMenuButton?.evaluate((node) =>
           node.classList.contains("disabled")
         );
 
         // wait for one second before retry
         if (isDisabled) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
           throw new Error("Button is disabled");
         }
       }, 100);
@@ -319,6 +352,23 @@ export default class InstagramAPI implements IInstagramGateway {
     } else {
       return false;
     }
+  }
+
+  async isFollowed(session: ISession, userUrl: string): Promise<boolean> {
+    const { page } = session as PuppeteerSession;
+
+    await page.goto(userUrl);
+
+    const header = await page.waitForSelector("header");
+    const buttons = await header?.$$("button");
+    const followButton = buttons?.[0];
+    const buttonText = await followButton?.evaluate((node) => node.innerText);
+
+    if (buttonText !== "Follow" && buttonText !== "Following") {
+      throw new Error("Invalid button text: " + buttonText);
+    }
+
+    return buttonText === "Following";
   }
 
   async getPosts(session: ISession, keyword: string): Promise<IPost[]> {
@@ -405,8 +455,10 @@ export default class InstagramAPI implements IInstagramGateway {
 
       await retry(async () => {
         await likeButton.click({ ...delayOption, ...clickOption });
-        await page.waitForSelector("svg[aria-label='Unlike'][width='24']");
-      }, 3);
+        await page.waitForSelector("svg[aria-label='Unlike'][width='24']", {
+          timeout: 5000,
+        });
+      }, 18);
 
       return true;
     } else {

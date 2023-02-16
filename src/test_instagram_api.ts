@@ -25,13 +25,23 @@ const cookie = new Cookie(new CookieRepository());
   /// tests here
 
   // await insta
+  //   .unfollowUser(session, "https://www.instagram.com/championsleague/")
+  //   .then((result) => console.log(`already unfollowed? ${result}`))
+  //   .catch(console.error);
+
+  // await insta
   //   .followUser(session, "https://www.instagram.com/championsleague/")
   //   .then((result) => console.log(`already followed? ${result}`))
   //   .catch(console.error);
 
   // await insta
-  //   .unfollowUser(session, "https://www.instagram.com/championsleague/")
-  //   .then((result) => console.log(`already unfollowed? ${result}`))
+  //   .isFollowed(session, "https://www.instagram.com/championsleague/")
+  //   .then((result) => console.log(`already followed? ${result}`))
+  //   .catch(console.error);
+
+  // await insta
+  //   .isFollowed(session, "https://www.instagram.com/brfootball/")
+  //   .then((result) => console.log(`already followed? ${result}`))
   //   .catch(console.error);
 
   // const posts = await insta.getPosts(session, "championsleague");
