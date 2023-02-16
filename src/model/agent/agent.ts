@@ -5,6 +5,7 @@ import Instagram from "@model/instagram";
 import Keyword from "@model/keyword";
 import Logger from "@model/logger";
 import ISession from "@model/session";
+import { mkdir } from "fs/promises";
 
 export interface IAgentContext {
   logger: Logger;
@@ -93,10 +94,13 @@ export default class Agent {
       }
     } catch (e) {
       // if something fails for some reason, take screenshot and save it with error message
-      await this.context.session?.screenshot({
-        path: `./errors/error-${new Date().toISOString()}.png`,
-      });
       await this.context.logger.error(e);
+
+      const folderPath = "./errors";
+      await mkdir(folderPath, { recursive: true });
+      await this.context.session?.screenshot({
+        path: `${folderPath}/error-${new Date().toISOString()}.png`,
+      });
     }
 
     await this.context.logger.info("Agent stopped");
