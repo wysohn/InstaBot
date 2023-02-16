@@ -77,11 +77,6 @@ export default class Agent {
       while (this.state) {
         for (const action of this.state.actions) {
           await action.handler(new AgentEvent(this, "tick"));
-
-          // always way for 1 ~ 3 seconds before next action
-          await new Promise((resolve) =>
-            setTimeout(resolve, 1000 + Math.random() * 2000)
-          );
         }
 
         for (const transition of this.state.transitions) {
@@ -98,7 +93,7 @@ export default class Agent {
       }
     } catch (e) {
       // if something fails for some reason, take screenshot and save it with error message
-      this.context.session?.screenshot({
+      await this.context.session?.screenshot({
         path: `./errors/error-${new Date().toISOString()}.png`,
       });
       await this.context.logger.error(e);

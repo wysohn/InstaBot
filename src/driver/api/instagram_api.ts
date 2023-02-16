@@ -57,6 +57,10 @@ export class InstagramUser implements IUser {
   constructor(private readonly instagram: InstagramAPI, readonly id: string) {}
 
   async follow(initiator: ISession): Promise<boolean> {
+    if (this.followed) {
+      return true;
+    }
+
     const result = await this.instagram.followUser(
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
@@ -67,6 +71,10 @@ export class InstagramUser implements IUser {
   }
 
   async unfollow(initiator: ISession): Promise<boolean> {
+    if (!this.followed) {
+      return true;
+    }
+
     const result = await this.instagram.unfollowUser(
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
@@ -81,10 +89,11 @@ export class InstagramUser implements IUser {
       return true;
     }
 
-    return await this.instagram.isFollowed(
+    this.followed = await this.instagram.isFollowed(
       session,
       USER_PROFILE_URL.replace("{}", this.id)
     );
+    return this.followed;
   }
 
   async listPosts(initiator: ISession): Promise<IPost[]> {
@@ -98,6 +107,7 @@ export class InstagramUser implements IUser {
 export class InstagramPost implements IPost {
   private postTime?: Date;
   private owner?: IUser;
+  private liked?: boolean;
 
   constructor(private readonly instagram: InstagramAPI, readonly url: string) {
     this.url = url;
@@ -122,11 +132,25 @@ export class InstagramPost implements IPost {
   }
 
   async like(initiator: ISession): Promise<boolean> {
-    return await this.instagram.likePost(initiator, this.url);
+    if (this.liked !== undefined && this.liked) {
+      return true;
+    }
+
+    const result = await this.instagram.likePost(initiator, this.url);
+    this.liked = true;
+
+    return result;
   }
 
   async unlike(initiator: ISession): Promise<boolean> {
-    return await this.instagram.unlikePost(initiator, this.url);
+    if (this.liked !== undefined && !this.liked) {
+      return true;
+    }
+
+    const result = await this.instagram.unlikePost(initiator, this.url);
+    this.liked = false;
+
+    return result;
   }
 
   async writeComment(initiator: ISession, comment: string): Promise<void> {
@@ -372,6 +396,10 @@ export default class InstagramAPI implements IInstagramGateway {
       throw new Error("Invalid button text: " + buttonText);
     }
 
+    // give 1 ~ 3 seconds delay (banned if too fast)
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.random() * 2000 + 1000)
+    );
     return buttonText === "Following";
   }
 
