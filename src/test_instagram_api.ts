@@ -6,7 +6,10 @@ import InstagramAPI from "@driver/api/instagram_api";
 import * as dotenv from "dotenv";
 dotenv.config();
 
-const insta = new InstagramAPI(true);
+const insta = new InstagramAPI(true, [
+  (req) => req.resourceType() === "image",
+  (req) => req.resourceType() === "media",
+]);
 const account: IAccount = {
   principal: { loginId: process.env.USER_ID },
   password: process.env.PASSWORD,
@@ -44,11 +47,12 @@ const cookie = new Cookie(new CookieRepository());
   //   .then((result) => console.log(`already followed? ${result}`))
   //   .catch(console.error);
 
-  // const posts = await insta.getPosts(session, "championsleague");
-  // for (const post of posts) {
-  //   console.log(await post.getPostTime(session));
-  //   console.log(post);
-  // }
+  const posts = await insta.getPosts(session, "championsleague");
+  for (const post of posts) {
+    console.log(await post.getPostTime(session));
+    console.log(await post.getOwner(session));
+    console.log(post);
+  }
 
   // const posts = await insta.getPostsByUser(
   //   session,

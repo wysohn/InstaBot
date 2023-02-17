@@ -13,6 +13,7 @@ import {
   NodeFor,
   Protocol,
   ClickOptions,
+  HTTPRequest,
 } from "puppeteer";
 import puppeteerExtra from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
@@ -69,7 +70,7 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor(3);
+    await waitFor();
 
     this.followed = true;
     return result;
@@ -84,7 +85,7 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor(3);
+    await waitFor();
 
     this.followed = false;
     return result;
@@ -99,7 +100,7 @@ export class InstagramUser implements IUser {
       session,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor(3);
+    await waitFor();
 
     return this.followed;
   }
@@ -109,7 +110,7 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor(3);
+    await waitFor();
 
     return result;
   }
@@ -130,7 +131,7 @@ export class InstagramPost implements IPost {
     }
 
     this.postTime = await this.instagram.getPostTime(initiator, this.url);
-    await waitFor(3);
+    await waitFor();
 
     return this.postTime;
   }
@@ -141,7 +142,7 @@ export class InstagramPost implements IPost {
     }
 
     this.owner = await this.instagram.getPostOwner(initiator, this.url);
-    await waitFor(3);
+    await waitFor();
 
     return this.owner;
   }
@@ -152,7 +153,7 @@ export class InstagramPost implements IPost {
     }
 
     const result = await this.instagram.likePost(initiator, this.url);
-    await waitFor(3);
+    await waitFor();
 
     this.liked = true;
 
@@ -165,7 +166,7 @@ export class InstagramPost implements IPost {
     }
 
     const result = await this.instagram.unlikePost(initiator, this.url);
-    await waitFor(3);
+    await waitFor();
 
     this.liked = false;
 
@@ -178,7 +179,7 @@ export class InstagramPost implements IPost {
       this.url,
       comment
     );
-    await waitFor(3);
+    await waitFor();
 
     return result;
   }
@@ -291,7 +292,10 @@ class PuppeteerSession implements ISession {
 
 const OWNER_NAME_REGEX = /(https:\/\/)(www\.instagram\.com\/)(.+)(\/)/;
 export default class InstagramAPI implements IInstagramGateway {
-  constructor(private readonly debugging: boolean = false) {}
+  constructor(
+    private readonly debugging: boolean = false,
+    private readonly resourceFilters: ((req: HTTPRequest) => boolean)[] = []
+  ) {}
 
   async initSession(account: IAccount): Promise<ISession> {
     const puppeteer = puppeteerExtra.use(StealthPlugin()).use(AdblockPlugin());
@@ -300,6 +304,18 @@ export default class InstagramAPI implements IInstagramGateway {
       executablePath: executablePath(),
     });
     const page = await browser.newPage();
+
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      for (const filter of this.resourceFilters) {
+        if (filter(req)) {
+          req.abort();
+          return;
+        }
+      }
+
+      req.continue();
+    });
 
     const session = new PuppeteerSession(account, browser, page);
 
