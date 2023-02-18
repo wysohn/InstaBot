@@ -49,14 +49,14 @@ const cookie = new Cookie(new CookieRepository());
   //   console.log(post);
   // }
 
-  // const posts = await insta.getPostsByUser(
-  //   session,
-  //   "https://www.instagram.com/championsleague/"
-  // );
-  // for (const post of posts) {
-  //   console.log(await post.getPostTime(session));
-  //   console.log(post);
-  // }
+  const posts = await insta.getPostsByUser(
+    session,
+    "https://www.instagram.com/championsleague/"
+  );
+  for (const post of posts) {
+    console.log(await post.getPostTime(session));
+    console.log(post);
+  }
 
   // await insta
   //   .getPostTime(session, "https://www.instagram.com/p/CoswEoQrtzG/")
@@ -78,11 +78,11 @@ const cookie = new Cookie(new CookieRepository());
   //   .then((result) => console.log(`already liked? ${result}`))
   //   .catch(console.error);
 
-  insta
-    .writeCommentToPost(
-      session,
-      "https://www.instagram.com/p/CoswEoQrtzG/",
-      "😍😍😍😍 Fascinating 🔥🔥"
-    )
-    .catch(console.error);
+  // insta
+  //   .writeCommentToPost(
+  //     session,
+  //     "https://www.instagram.com/p/CoswEoQrtzG/",
+  //     "😍😍😍😍 Fascinating 🔥🔥"
+  //   )
+  //   .catch(console.error);
 })().catch(console.error);

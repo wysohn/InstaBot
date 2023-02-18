@@ -120,6 +120,10 @@ export class InstagramPost implements IPost {
     this.url = url;
   }
 
+  setPostTime(postTime: Date) {
+    this.postTime = postTime;
+  }
+
   async getPostTime(initiator: ISession): Promise<Date> {
     if (this.postTime) {
       return this.postTime;
@@ -333,7 +337,7 @@ export default class InstagramAPI implements IInstagramGateway {
   ): Promise<IUser | undefined> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(USER_PROFILE_URL.replace("{}", userId.id));
+    await goTo(page, USER_PROFILE_URL.replace("{}", userId.id));
 
     const header = await getElementOrUndefined(page, "header");
     const links = await header?.$$("a[href^='/']");
@@ -349,7 +353,7 @@ export default class InstagramAPI implements IInstagramGateway {
   async followUser(session: ISession, userUrl: string): Promise<boolean> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(userUrl);
+    await goTo(page, userUrl);
 
     const header = await getElementOrUndefined(page, "header");
     const buttons = await header?.$$("button");
@@ -433,7 +437,7 @@ export default class InstagramAPI implements IInstagramGateway {
   async isFollowed(session: ISession, userUrl: string): Promise<boolean> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(userUrl);
+    await goTo(page, userUrl);
 
     const header = await getElementOrUndefined(page, "header");
     const buttons = await header?.$$("button");
@@ -450,7 +454,12 @@ export default class InstagramAPI implements IInstagramGateway {
   async getPosts(session: ISession, keyword: string): Promise<IPost[]> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(EXPLORE_URL.replace("{}", keyword));
+    const ajaxPromise = page.waitForResponse((res) =>
+      res.url().includes("/api/v1/tags/")
+    );
+    await goTo(page, EXPLORE_URL.replace("{}", keyword));
+    const ajaxPosts = await ajaxPromise;
+
     const post = await getElementOrUndefined(
       page,
       "a[href^='/p/'][role='link']"
@@ -469,13 +478,38 @@ export default class InstagramAPI implements IInstagramGateway {
       });
     });
 
-    return posts.map((post) => new InstagramPost(this, post.url));
+    const postsJson = await ajaxPosts.json();
+
+    return posts.map((post) => {
+      const instaPost = new InstagramPost(this, post.url);
+
+      const mediasFlat = postsJson.data.recent.sections
+        .reduce((acc, section) => {
+          return acc.concat(section.layout_content.medias);
+        }, [])
+        .map((media) => media.media);
+      const media = mediasFlat.find((media) => {
+        const urlSplit = post.url.split("/");
+        return media.code === urlSplit[4];
+      });
+
+      if (media) {
+        instaPost.setPostTime(new Date(media.taken_at * 1000));
+      }
+
+      return instaPost;
+    });
   }
 
   async getPostsByUser(session: ISession, userUrl: string): Promise<IPost[]> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(userUrl);
+    const ajaxPromise = page.waitForResponse((res) =>
+      res.url().includes("/api/v1/feed/user/")
+    );
+    await goTo(page, userUrl);
+    const ajaxPosts = await ajaxPromise;
+
     const postLink = await getElementOrUndefined(
       page,
       "a[href^='/p/'][role='link']"
@@ -494,13 +528,24 @@ export default class InstagramAPI implements IInstagramGateway {
       });
     });
 
-    return posts.map((post) => new InstagramPost(this, post.url));
+    const postsJson = await ajaxPosts.json();
+
+    return posts.map((post) => {
+      const instaPost = new InstagramPost(this, post.url);
+      const postJson = postsJson.items.find(
+        (item: any) => item.code === post.url.split("/")[4]
+      );
+      if (postJson) {
+        instaPost.setPostTime(new Date(postJson.taken_at * 1000));
+      }
+      return instaPost;
+    });
   }
 
   async getPostTime(session: ISession, postUrl: string): Promise<Date> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(postUrl);
+    await goTo(page, postUrl);
 
     const time = await getElementOrUndefined(page, "time");
     const dateTime = await time?.evaluate((node) =>
@@ -517,7 +562,7 @@ export default class InstagramAPI implements IInstagramGateway {
   async getPostOwner(initiator: ISession, url: string): Promise<IUser> {
     const { page } = initiator as PuppeteerSession;
 
-    await page.goto(url);
+    await goTo(page, url);
 
     const header = await getElementOrUndefined(page, "header");
     const links = await header?.$$("a[href^='/']");
@@ -534,7 +579,7 @@ export default class InstagramAPI implements IInstagramGateway {
   async likePost(session: ISession, postUrl: string): Promise<boolean> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(postUrl);
+    await goTo(page, postUrl);
 
     const likeButtonSvg = await getElementOrUndefined(
       page,
@@ -564,7 +609,7 @@ export default class InstagramAPI implements IInstagramGateway {
   async unlikePost(session: ISession, postUrl: string): Promise<boolean> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(postUrl);
+    await goTo(page, postUrl);
 
     const likeButtonSvg = await getElementOrUndefined(
       page,
@@ -597,7 +642,7 @@ export default class InstagramAPI implements IInstagramGateway {
   ): Promise<void> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(postUrl);
+    await goTo(page, postUrl);
 
     const form = await getElementOrUndefined(page, "form[method='POST']");
 
@@ -622,6 +667,7 @@ export default class InstagramAPI implements IInstagramGateway {
     );
   }
 }
+
 async function goTo(page: Page, url: string): Promise<HTTPResponse> {
   if (page.url() !== url) {
     return page.goto(url);
