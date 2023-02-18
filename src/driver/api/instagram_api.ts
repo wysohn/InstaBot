@@ -620,20 +620,17 @@ export default class InstagramAPI implements IInstagramGateway {
 
     const submitButton = await getElementOrUndefined(
       form,
-      "button[type='submit']"
+      "div[role='button']"
     );
     await submitButton?.click({ ...delayOption, ...clickOption });
 
-    const loading = await getElementOrUndefined(
+    const loadingHidden = await getElementOrUndefined(
       page,
       "div[data-visualcompletion='loading-state']",
       {
         hidden: true,
       }
     );
-    if (!loading) {
-      throw new Error("Loading state is not hidden");
-    }
   }
 }
 async function goTo(page: Page, url: string): Promise<HTTPResponse> {

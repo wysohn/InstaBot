@@ -78,11 +78,11 @@ const cookie = new Cookie(new CookieRepository());
   //   .then((result) => console.log(`already liked? ${result}`))
   //   .catch(console.error);
 
-  // insta
-  //   .writeCommentToPost(
-  //     session,
-  //     "https://www.instagram.com/p/CoswEoQrtzG/",
-  //     "😍😍😍😍 Fascinating 🔥🔥"
-  //   )
-  //   .catch(console.error);
+  insta
+    .writeCommentToPost(
+      session,
+      "https://www.instagram.com/p/CoswEoQrtzG/",
+      "😍😍😍😍 Fascinating 🔥🔥"
+    )
+    .catch(console.error);
 })().catch(console.error);
