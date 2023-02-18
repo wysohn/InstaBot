@@ -152,7 +152,7 @@ export class SelectUserState extends AgentState {
         // follow user
         [async (ctx) => true, () => new FollowUserState()],
       ]),
-      [new SelectUserAction()]
+      [new SelectUserAction(), new DelayAction(5000)]
     );
   }
 }
@@ -161,6 +161,7 @@ export class FollowUserState extends AgentState {
   constructor() {
     super(buildMap([[async (ctx) => true, () => new SearchUserPostState()]]), [
       new FollowUserAction(),
+      new DelayAction(5000),
     ]);
   }
 }
@@ -204,7 +205,7 @@ export class SelectUserPostState extends AgentState {
         ],
         [async (ctx) => true, () => new LikeAndCommentState()],
       ]),
-      [new SelectUserPostAction()]
+      [new SelectUserPostAction(), new DelayAction(5000)]
     );
   }
 }

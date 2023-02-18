@@ -159,6 +159,7 @@ export class FilterPostsAction implements IAgentAction {
         }
 
         const time = await post.getPostTime(session);
+
         postsEvaluated.push({ post, time });
       }
 

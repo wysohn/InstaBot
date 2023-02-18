@@ -55,10 +55,6 @@ async function retry(func: () => Promise<any>, times: number) {
   }
 }
 
-async function waitFor(waitSecs: number = 30) {
-  await new Promise((r) => setTimeout(r, waitSecs * 1000));
-}
-
 export class InstagramUser implements IUser {
   private followed?: boolean = false;
 
@@ -73,7 +69,6 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor();
 
     this.followed = true;
     return result;
@@ -88,7 +83,6 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor();
 
     this.followed = false;
     return result;
@@ -103,7 +97,6 @@ export class InstagramUser implements IUser {
       session,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor();
 
     return this.followed;
   }
@@ -113,7 +106,6 @@ export class InstagramUser implements IUser {
       initiator,
       USER_PROFILE_URL.replace("{}", this.id)
     );
-    await waitFor();
 
     return result;
   }
@@ -134,7 +126,8 @@ export class InstagramPost implements IPost {
     }
 
     this.postTime = await this.instagram.getPostTime(initiator, this.url);
-    await waitFor();
+    // delay to avoid rate limit
+    await new Promise((resolve) => setTimeout(resolve, 10000));
 
     return this.postTime;
   }
@@ -145,7 +138,6 @@ export class InstagramPost implements IPost {
     }
 
     this.owner = await this.instagram.getPostOwner(initiator, this.url);
-    await waitFor();
 
     return this.owner;
   }
@@ -156,7 +148,6 @@ export class InstagramPost implements IPost {
     }
 
     const result = await this.instagram.likePost(initiator, this.url);
-    await waitFor();
 
     this.liked = true;
 
@@ -169,7 +160,6 @@ export class InstagramPost implements IPost {
     }
 
     const result = await this.instagram.unlikePost(initiator, this.url);
-    await waitFor();
 
     this.liked = false;
 
@@ -182,7 +172,6 @@ export class InstagramPost implements IPost {
       this.url,
       comment
     );
-    await waitFor();
 
     return result;
   }
