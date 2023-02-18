@@ -457,7 +457,7 @@ export default class InstagramAPI implements IInstagramGateway {
     const ajaxPromise = page.waitForResponse((res) =>
       res.url().includes("/api/v1/tags/")
     );
-    await goTo(page, EXPLORE_URL.replace("{}", keyword));
+    await page.goto(EXPLORE_URL.replace("{}", keyword));
     const ajaxPosts = await ajaxPromise;
 
     const post = await getElementOrUndefined(
@@ -507,7 +507,7 @@ export default class InstagramAPI implements IInstagramGateway {
     const ajaxPromise = page.waitForResponse((res) =>
       res.url().includes("/api/v1/feed/user/")
     );
-    await goTo(page, userUrl);
+    await page.goto(userUrl);
     const ajaxPosts = await ajaxPromise;
 
     const postLink = await getElementOrUndefined(
