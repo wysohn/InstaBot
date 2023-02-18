@@ -31,6 +31,7 @@ const FOLLOW_DELAY = 6 * 60 * 60 * 1000;
 const FOLLOW_THRESHOLD = 30;
 const LIKE_DELAY = 6 * 60 * 60 * 1000;
 const LIKE_THRESHOLD = 30;
+const GLOBAL_DELAY = 10 * 1000;
 
 function buildMap(tuples: [AgentPredicate, () => AgentState][]) {
   const map = new Map<AgentPredicate, () => AgentState>();
@@ -152,7 +153,7 @@ export class SelectUserState extends AgentState {
         // follow user
         [async (ctx) => true, () => new FollowUserState()],
       ]),
-      [new SelectUserAction(), new DelayAction(5000)]
+      [new SelectUserAction(), new DelayAction(GLOBAL_DELAY)]
     );
   }
 }
@@ -161,7 +162,7 @@ export class FollowUserState extends AgentState {
   constructor() {
     super(buildMap([[async (ctx) => true, () => new SearchUserPostState()]]), [
       new FollowUserAction(),
-      new DelayAction(5000),
+      new DelayAction(GLOBAL_DELAY),
     ]);
   }
 }
@@ -205,7 +206,7 @@ export class SelectUserPostState extends AgentState {
         ],
         [async (ctx) => true, () => new LikeAndCommentState()],
       ]),
-      [new SelectUserPostAction(), new DelayAction(5000)]
+      [new SelectUserPostAction(), new DelayAction(GLOBAL_DELAY)]
     );
   }
 }
