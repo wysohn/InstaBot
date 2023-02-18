@@ -14,6 +14,8 @@ import {
   Protocol,
   ClickOptions,
   HTTPRequest,
+  WaitForSelectorOptions,
+  HTTPResponse,
 } from "puppeteer";
 import puppeteerExtra from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
@@ -28,11 +30,12 @@ const delayOption = { delay: 100 };
 const clickOption: ClickOptions = { button: "left" };
 
 async function getElementOrUndefined(
-  page: Page,
-  selector: string
+  page: ElementHandle<Element> | Page | undefined,
+  selector: string,
+  options?: WaitForSelectorOptions
 ): Promise<ElementHandle<NodeFor<string>>> {
   try {
-    return await page.waitForSelector(selector, { timeout: 1000 });
+    return await page?.waitForSelector(selector, options);
   } catch (e) {
     return undefined;
   }
@@ -52,7 +55,7 @@ async function retry(func: () => Promise<any>, times: number) {
   }
 }
 
-async function waitFor(waitSecs: number = 60) {
+async function waitFor(waitSecs: number = 30) {
   await new Promise((r) => setTimeout(r, waitSecs * 1000));
 }
 
@@ -229,7 +232,14 @@ class PuppeteerSession implements ISession {
     }
 
     const loginWait = this.page.waitForNavigation();
-    await this.page.waitForSelector("input[name=username]", { timeout: 1000 });
+    const userNameInput = await getElementOrUndefined(
+      this.page,
+      "input[name=username]"
+    );
+    if (!userNameInput) {
+      throw new Error("Login page not loaded");
+    }
+
     await this.page.type(
       "input[name=username]",
       principal.loginId,
@@ -253,7 +263,12 @@ class PuppeteerSession implements ISession {
     }
 
     await loginWait;
-    await this.page.waitForSelector("main");
+    const waitElement = await getElementOrUndefined(this.page, "main");
+
+    if (!waitElement) {
+      throw new Error("Login failed");
+    }
+
     return true;
   }
 
@@ -271,7 +286,8 @@ class PuppeteerSession implements ISession {
 
   async isValid(): Promise<boolean> {
     await this.page.goto(MAIN_URL);
-    await this.page.waitForSelector("article");
+    const articleElement = getElementOrUndefined(this.page, "article");
+    if (!articleElement) return false;
 
     const passwordField = await getElementOrUndefined(
       this.page,
@@ -330,7 +346,7 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(USER_PROFILE_URL.replace("{}", userId.id));
 
-    const header = await page.waitForSelector("header", { timeout: 1000 });
+    const header = await getElementOrUndefined(page, "header");
     const links = await header?.$$("a[href^='/']");
     const userLink = links?.[0];
     if (userLink) {
@@ -346,7 +362,7 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(userUrl);
 
-    const header = await page.waitForSelector("header");
+    const header = await getElementOrUndefined(page, "header");
     const buttons = await header?.$$("button");
     const followButton = buttons?.[0];
     const buttonText = await followButton?.evaluate((node) => node.innerText);
@@ -379,9 +395,9 @@ export default class InstagramAPI implements IInstagramGateway {
   async unfollowUser(session: ISession, userUrl: string): Promise<boolean> {
     const { page } = session as PuppeteerSession;
 
-    await page.goto(userUrl);
+    await goTo(page, userUrl);
 
-    const header = await page.waitForSelector("header");
+    const header = await getElementOrUndefined(page, "header");
     const buttons = await header?.$$("button");
     const unfollowMenuButton = buttons?.[0];
     const buttonText = await unfollowMenuButton?.evaluate(
@@ -390,12 +406,17 @@ export default class InstagramAPI implements IInstagramGateway {
 
     if (unfollowMenuButton && buttonText === "Following") {
       await unfollowMenuButton.click({ ...delayOption, ...clickOption });
-      const dialog = await page.waitForSelector("div[role='dialog']");
+      const dialog = await getElementOrUndefined(page, "div[role='dialog']");
 
-      await dialog.waitForSelector(
+      const menuButton = await getElementOrUndefined(
+        dialog,
         "div[role='button'][style='cursor: pointer;']"
       );
-      const menuButtons = await dialog.$$(
+      if (!menuButton) {
+        throw new Error("Menu button not found");
+      }
+
+      const menuButtons = await dialog?.$$(
         "div[role='button'][style='cursor: pointer;']"
       );
       const unfollowButton = menuButtons?.[4];
@@ -425,7 +446,7 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(userUrl);
 
-    const header = await page.waitForSelector("header");
+    const header = await getElementOrUndefined(page, "header");
     const buttons = await header?.$$("button");
     const followButton = buttons?.[0];
     const buttonText = await followButton?.evaluate((node) => node.innerText);
@@ -441,7 +462,13 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(EXPLORE_URL.replace("{}", keyword));
-    await page.waitForSelector("a[href^='/p/'][role='link']");
+    const post = await getElementOrUndefined(
+      page,
+      "a[href^='/p/'][role='link']"
+    );
+    if (!post) {
+      return [];
+    }
 
     const posts = await page.evaluate(() => {
       const posts = document.querySelectorAll("a[href^='/p/'][role='link']");
@@ -460,7 +487,14 @@ export default class InstagramAPI implements IInstagramGateway {
     const { page } = session as PuppeteerSession;
 
     await page.goto(userUrl);
-    await page.waitForSelector("a[href^='/p/'][role='link']");
+    const postLink = await getElementOrUndefined(
+      page,
+      "a[href^='/p/'][role='link']"
+    );
+    if (!postLink) {
+      return [];
+    }
+
     const posts = await page.evaluate(() => {
       const posts = document.querySelectorAll("a[href^='/p/'][role='link']");
       return Array.from(posts).map((post) => {
@@ -479,10 +513,14 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(postUrl);
 
-    const time = await page.waitForSelector("time");
-    const dateTime = await time.evaluate((node) =>
+    const time = await getElementOrUndefined(page, "time");
+    const dateTime = await time?.evaluate((node) =>
       node.getAttribute("datetime")
     );
+
+    if (!dateTime) {
+      throw new Error("Cannot get post time");
+    }
 
     return new Date(dateTime);
   }
@@ -492,7 +530,7 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(url);
 
-    const header = await page.waitForSelector("header");
+    const header = await getElementOrUndefined(page, "header");
     const links = await header?.$$("a[href^='/']");
     const userLink = links?.[0];
     if (userLink) {
@@ -519,9 +557,13 @@ export default class InstagramAPI implements IInstagramGateway {
 
       await retry(async () => {
         await likeButton.click({ ...delayOption, ...clickOption });
-        await page.waitForSelector("svg[aria-label='Unlike'][width='24']", {
-          timeout: 5000,
-        });
+        const isLiked = await getElementOrUndefined(
+          page,
+          "svg[aria-label='Unlike'][width='24']"
+        );
+        if (!isLiked) {
+          throw new Error("Like button is not clicked");
+        }
       }, 18);
 
       return true;
@@ -544,7 +586,15 @@ export default class InstagramAPI implements IInstagramGateway {
       const parentDiv = await likeButtonSvg.$("xpath=..");
       const likeButton = await parentDiv.$("xpath=..");
       await likeButton.click({ ...delayOption, ...clickOption });
-      await page.waitForSelector("svg[aria-label='Like'][width='24']");
+
+      const isUnliked = await getElementOrUndefined(
+        page,
+        "svg[aria-label='Like'][width='24']"
+      );
+      if (!isUnliked) {
+        throw new Error("Cannot unlike post");
+      }
+
       return true;
     } else {
       return false;
@@ -560,18 +610,34 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(postUrl);
 
-    const form = await page.waitForSelector("form[method='POST']");
+    const form = await getElementOrUndefined(page, "form[method='POST']");
 
-    const commentInput = await form.waitForSelector(
+    const commentInput = await getElementOrUndefined(
+      form,
       "textarea[aria-label='Add a comment…']"
     );
     await commentInput?.type(comment, delayOption);
 
-    const submitButton = await form.waitForSelector("div[role='button']");
+    const submitButton = await getElementOrUndefined(
+      form,
+      "button[type='submit']"
+    );
     await submitButton?.click({ ...delayOption, ...clickOption });
 
-    await page.waitForSelector("div[data-visualcompletion='loading-state'", {
-      hidden: true,
-    });
+    const loading = await getElementOrUndefined(
+      page,
+      "div[data-visualcompletion='loading-state']",
+      {
+        hidden: true,
+      }
+    );
+    if (!loading) {
+      throw new Error("Loading state is not hidden");
+    }
+  }
+}
+async function goTo(page: Page, url: string): Promise<HTTPResponse> {
+  if (page.url() !== url) {
+    return page.goto(url);
   }
 }
