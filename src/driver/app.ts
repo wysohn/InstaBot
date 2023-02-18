@@ -22,8 +22,8 @@ export default class App {
   constructor(private readonly logger: Logger, debug = false) {
     this.instagram = new Instagram(
       new InstagramAPI(debug, [
-        (req) => req.resourceType() === "image",
-        (req) => req.resourceType() === "media",
+        // (req) => req.resourceType() === "image",
+        // (req) => req.resourceType() === "media",
       ])
     );
     this.keyword = new Keyword(new KeywordRepository());

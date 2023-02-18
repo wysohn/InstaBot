@@ -120,12 +120,6 @@ export class SearchFeedsState extends AgentState {
         new SearchFeedsAction(),
         new FilterPostsAction({
           postsKey: KEY_POSTS,
-          valueFilter: async (agent, post) => {
-            const { session } = await agent.getDefaultContext();
-
-            const owner: IUser = await post.getOwner(session);
-            return owner && !(await owner.isFollowed(session));
-          },
         }),
       ]
     );

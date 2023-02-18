@@ -52,7 +52,7 @@ async function retry(func: () => Promise<any>, times: number) {
   }
 }
 
-async function waitFor(waitSecs: number = 3) {
+async function waitFor(waitSecs: number = 60) {
   await new Promise((r) => setTimeout(r, waitSecs * 1000));
 }
 
@@ -479,7 +479,7 @@ export default class InstagramAPI implements IInstagramGateway {
 
     await page.goto(postUrl);
 
-    const time = await page.waitForSelector("time", { timeout: 1000 });
+    const time = await page.waitForSelector("time");
     const dateTime = await time.evaluate((node) =>
       node.getAttribute("datetime")
     );
