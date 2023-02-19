@@ -50,6 +50,9 @@ export default class App {
   async main() {
     await this.keyword.init();
 
+    await this.logger.info("User ID: " + process.env.USER_ID);
+    await this.logger.info("Password set: " + !!process.env.PASSWORD);
+
     const account: IAccount = new InstagramAccount(
       process.env.USER_ID,
       process.env.PASSWORD
