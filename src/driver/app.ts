@@ -26,7 +26,7 @@ export default class App {
         // (req) => req.resourceType() === "media",
       ])
     );
-    this.keyword = new Keyword(new KeywordRepository());
+    this.keyword = new Keyword(new KeywordRepository(logger));
     this.cookie = new Cookie(new CookieRepository());
     this.commenter = {
       // TODO implement actual random commenting logic

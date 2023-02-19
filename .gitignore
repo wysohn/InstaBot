@@ -1,6 +1,7 @@
 dist
 errors
 cookies
+keywords.txt
 
 lib-cov
 *.seed
