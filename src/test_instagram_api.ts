@@ -1,27 +1,38 @@
 import IAccount from "@model/account";
 import Cookie from "@model/cookie";
 import CookieRepository from "@driver/repository/cookie_repository";
-import InstagramAPI from "@driver/api/instagram_api";
+import InstagramAPI, {
+  FacebookLogin,
+  InstagramLogin,
+} from "@driver/api/instagram_api";
 
 import * as dotenv from "dotenv";
+import Logger from "@model/logger";
+import { ILoginProvider } from "@model/provider";
 dotenv.config();
 
-const insta = new InstagramAPI(true, [
-  (req) => req.resourceType() === "image",
-  (req) => req.resourceType() === "media",
+const logger: Logger = {
+  info: async (message: string) => console.log(message),
+  error: async (message: string) => console.error(message),
+};
+const insta = new InstagramAPI(logger, true, [
+  // (req) => req.resourceType() === "image",
+  // (req) => req.resourceType() === "media",
 ]);
 const account: IAccount = {
   principal: { loginId: process.env.USER_ID },
   password: process.env.PASSWORD,
+  providerType: "facebook",
 };
 const cookie = new Cookie(new CookieRepository());
 
+const provider: ILoginProvider = new FacebookLogin(account);
 (async () => {
-  const session = await insta.initSession(account);
+  const session = await insta.initSession();
   await session.updateCookie(await cookie.loadCookie(account));
   if (!(await session.isValid())) {
     console.log("new session login");
-    await session.login();
+    await session.login(provider);
   }
   await cookie.saveCookie(account, await session.getCookie());
 

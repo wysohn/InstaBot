@@ -1,6 +1,7 @@
 import IAccount from "@model/account";
 import { FollowHistory, LikeHistory } from "@model/history";
 import IPost from "@model/post";
+import { ILoginProvider } from "@model/provider";
 import IUser from "@model/user";
 import Agent, { AgentEvent, IAgentAction } from "./agent";
 
@@ -23,8 +24,6 @@ export class DelayAction implements IAgentAction {
 }
 
 export class InitSessionAction implements IAgentAction {
-  constructor(private account: IAccount) {}
-
   async handler({ responder, message }: AgentEvent): Promise<void> {
     const { logger, session, instagram } = await responder.getDefaultContext();
 
@@ -35,7 +34,7 @@ export class InitSessionAction implements IAgentAction {
       }
 
       logger.info("Initializing session").catch(console.error);
-      const newSession = await instagram.init(this.account);
+      const newSession = await instagram.init();
       await responder.setContext("session", newSession);
     }
   }
@@ -57,7 +56,7 @@ export class PrepareCookieAction implements IAgentAction {
 }
 
 export class LoginAction implements IAgentAction {
-  constructor(private account: IAccount) {}
+  constructor(private readonly provider: ILoginProvider) {}
 
   async handler({ responder, message }: AgentEvent): Promise<void> {
     const { logger, instagram, session } = await responder.getDefaultContext();
@@ -71,7 +70,7 @@ export class LoginAction implements IAgentAction {
       }
 
       logger.info("Starting login process").catch(console.error);
-      if (await session.login()) {
+      if (await session.login(this.provider)) {
         logger.info("Login success").catch(console.error);
       } else {
         logger.error("Login failed").catch(console.error);
@@ -149,7 +148,7 @@ export class FilterPostsAction implements IAgentAction {
         return;
       }
 
-      const postsEvaluated = [];
+      const postsEvaluated: { post: IPost; time: Date }[] = [];
       for (const post of posts) {
         if (
           this.options.valueFilter &&

@@ -5,4 +5,5 @@ export default interface IAccount {
   readonly principal: Principal;
   readonly password: string;
   readonly cookies?: ICookieMemento;
+  readonly providerType: string;
 }

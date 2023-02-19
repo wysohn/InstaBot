@@ -2,24 +2,27 @@ import { PuppeteerCookieMemento } from "@driver/api/instagram_api";
 import IAccount from "@model/account";
 import { ICookieGateway } from "@model/cookie";
 import { ICookieMemento } from "@model/session";
-import { existsSync } from "fs";
 import { mkdir, open, stat } from "fs/promises";
 import { Protocol } from "puppeteer";
 
 const ENCODING = "utf-8";
 
+function getFileName(account: IAccount): string {
+  return `${account.principal.loginId}.${account.providerType}.json`;
+}
+
 export default class CookieRepository implements ICookieGateway {
   constructor(private readonly folderPath: string = "./cookies") {}
 
   async getCookie(account: IAccount): Promise<ICookieMemento> {
-    const fileName = `${this.folderPath}/${account.principal.loginId}.json`;
+    const filePath = `${this.folderPath}/${getFileName(account)}`;
 
     if (
-      await stat(fileName)
+      await stat(filePath)
         .then((stat) => stat.isFile())
         .catch(() => false)
     ) {
-      const handle = await open(fileName, "r");
+      const handle = await open(filePath, "r");
       const cookieString = await handle.readFile(ENCODING);
       await handle.close();
 
@@ -37,7 +40,7 @@ export default class CookieRepository implements ICookieGateway {
     await mkdir(this.folderPath, { recursive: true });
 
     const handle = await open(
-      `${this.folderPath}/${account.principal.loginId}.json`,
+      `${this.folderPath}/${getFileName(account)}`,
       "w"
     );
     const puppeteerCookieMemento = cookie as PuppeteerCookieMemento;

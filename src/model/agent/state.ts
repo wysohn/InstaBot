@@ -1,6 +1,7 @@
 import IAccount from "@model/account";
 import { FollowHistory } from "@model/history";
 import IPost from "@model/post";
+import { ILoginProvider } from "@model/provider";
 import ISession from "@model/session";
 import IUser from "@model/user";
 import {
@@ -53,27 +54,34 @@ export class DelayState extends AgentState {
   }
 }
 
+export interface LoginRequiredStateProps {
+  account: IAccount;
+  provider: ILoginProvider;
+}
 export class LoginRequiredState extends AgentState {
-  constructor(account: IAccount) {
+  constructor(props: LoginRequiredStateProps) {
     super(
       buildMap([
         // check login is successful
-        [async (ctx) => _<ISession>(ctx, "session")?.isValid(), () => new KeywordSelectionState()],
+        [
+          async (ctx) => _<ISession>(ctx, "session")?.isValid(),
+          () => new KeywordSelectionState(),
+        ],
         // otherwise, wait for 5 seconds and try again
         [
           async (ctx) => true,
           () =>
             new DelayState(
               new Date(Date.now() + 5000),
-              () => new LoginRequiredState(account)
+              () => new LoginRequiredState({ ...props })
             ),
         ],
       ]),
       [
-        new InitSessionAction(account),
-        new PrepareCookieAction(account),
-        new LoginAction(account),
-        new SaveCookieAction(account),
+        new InitSessionAction(),
+        new PrepareCookieAction(props.account),
+        new LoginAction(props.provider),
+        new SaveCookieAction(props.account),
       ]
     );
   }

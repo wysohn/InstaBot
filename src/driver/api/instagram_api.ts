@@ -20,6 +20,8 @@ import {
 import puppeteerExtra from "puppeteer-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import AdblockPlugin from "puppeteer-extra-plugin-adblocker";
+import { ILoginProvider, ILoginResponse } from "@model/provider";
+import Logger from "@model/logger";
 
 const MAIN_URL = "https://www.instagram.com/";
 const LOGIN_URL = "https://www.instagram.com/accounts/login/";
@@ -189,10 +191,12 @@ export class InstagramAccount implements IAccount {
   principal: Principal;
   password: string;
   cookies: { [key: string]: string } = {};
+  providerType: string;
 
-  constructor(userId: string, password: string) {
+  constructor(userId: string, password: string, providerType: string) {
     this.principal = { loginId: userId };
     this.password = password;
+    this.providerType = providerType;
   }
 }
 
@@ -200,9 +204,137 @@ export class PuppeteerCookieMemento implements ICookieMemento {
   constructor(readonly cookies: Protocol.Network.Cookie[]) {}
 }
 
+export type InstagramLoginReason =
+  | "ALREADY_LOGGED_IN"
+  | "LOGIN_SUCCESS"
+  | "LOGIN_FAILED";
+
+export interface InstgramLoginResponse {
+  success: boolean;
+  reason: InstagramLoginReason;
+}
+
+export class InstagramLogin implements ILoginProvider {
+  constructor(private readonly account: IAccount) {}
+
+  async attemptLogin(session: ISession): Promise<ILoginResponse> {
+    const puppeteerSession = session as PuppeteerSession;
+    const page = puppeteerSession.page;
+
+    const { principal, password } = this.account;
+
+    await page.goto(LOGIN_URL);
+
+    const searchBar = await getElementOrUndefined(
+      page,
+      "input[placeholder=Search]"
+    );
+    if (searchBar) {
+      // Already logged in
+      return {
+        success: true,
+        reason: "ALREADY_LOGGED_IN",
+      };
+    }
+
+    const loginWait = page.waitForNavigation();
+    const userNameInput = await getElementOrUndefined(
+      page,
+      "input[name=username]"
+    );
+    if (!userNameInput) {
+      throw new Error("Login page not loaded");
+    }
+
+    await page.type("input[name=username]", principal.loginId, delayOption);
+    await page.type("input[name=password]", password, delayOption);
+    await page.$eval("button[type=submit]", (el) =>
+      el.removeAttribute("disabled")
+    );
+    await page.click("button[type=submit]", {
+      ...delayOption,
+      ...clickOption,
+    });
+
+    const loginFailed = await getElementOrUndefined(
+      page,
+      "p[id=slfErrorAlert]"
+    );
+    if (loginFailed) {
+      return { success: false, reason: "LOGIN_FAILED" };
+    }
+
+    await loginWait;
+    const waitElement = await getElementOrUndefined(page, "main");
+
+    if (!waitElement) {
+      throw new Error("Login failed");
+    }
+
+    return { success: true, reason: "LOGIN_SUCCESS" };
+  }
+}
+
+export class FacebookLogin implements ILoginProvider {
+  constructor(private readonly account: IAccount) {}
+
+  async attemptLogin(session: ISession): Promise<ILoginResponse> {
+    const puppeteerSession = session as PuppeteerSession;
+    const page = puppeteerSession.page;
+
+    const { principal, password } = this.account;
+
+    await page.goto(LOGIN_URL);
+
+    const facebookButton = await getElementOrUndefined(
+      page,
+      "button[type=button]"
+    );
+    if (!facebookButton) {
+      throw new Error("Facebook login button not found");
+    }
+
+    const transitionWait = page.waitForNavigation();
+    await facebookButton.click({
+      ...delayOption,
+      ...clickOption,
+    });
+    await transitionWait;
+
+    const userNameInput = await getElementOrUndefined(
+      page,
+      "input[name=email]"
+    );
+    if (!userNameInput) {
+      throw new Error("Login page not loaded");
+    }
+
+    await page.type("input[name=email]", principal.loginId, delayOption);
+    await page.type("input[name=pass]", password, delayOption);
+
+    const loginTransitionWait = page.waitForNavigation();
+    await page.click("button[type=submit][name=login]", {
+      ...delayOption,
+      ...clickOption,
+    });
+    await loginTransitionWait;
+
+    const exploreButton = await getElementOrUndefined(
+      page,
+      "a[href='/explore/']"
+    );
+
+    if (!exploreButton) {
+      throw new Error("Login failed");
+    }
+
+    return { success: true, reason: "LOGIN_SUCCESS" };
+  }
+}
+
 class PuppeteerSession implements ISession {
   constructor(
-    readonly account: IAccount,
+    readonly logger: Logger,
     readonly browser: Browser,
     readonly page: Page
   ) {
@@ -210,59 +342,13 @@ class PuppeteerSession implements ISession {
     this.page = page;
   }
 
-  async login(): Promise<boolean> {
-    const { principal, password } = this.account;
+  async login(provider: ILoginProvider): Promise<boolean> {
+    const { success, reason } = (await provider.attemptLogin(
+      this
+    )) as InstgramLoginResponse;
 
-    await this.page.goto(LOGIN_URL);
-
-    const searchBar = await getElementOrUndefined(
-      this.page,
-      "input[placeholder=Search]"
-    );
-    if (searchBar) {
-      // Already logged in
-      return;
-    }
-
-    const loginWait = this.page.waitForNavigation();
-    const userNameInput = await getElementOrUndefined(
-      this.page,
-      "input[name=username]"
-    );
-    if (!userNameInput) {
-      throw new Error("Login page not loaded");
-    }
-
-    await this.page.type(
-      "input[name=username]",
-      principal.loginId,
-      delayOption
-    );
-    await this.page.type("input[name=password]", password, delayOption);
-    await this.page.$eval("button[type=submit]", (el) =>
-      el.removeAttribute("disabled")
-    );
-    await this.page.click("button[type=submit]", {
-      ...delayOption,
-      ...clickOption,
-    });
-
-    const loginFailed = await getElementOrUndefined(
-      this.page,
-      "p[id=slfErrorAlert]"
-    );
-    if (loginFailed) {
-      return false;
-    }
-
-    await loginWait;
-    const waitElement = await getElementOrUndefined(this.page, "main");
-
-    if (!waitElement) {
-      throw new Error("Login failed");
-    }
-
-    return true;
+    this.logger.info(`Login attempt result: ${reason}`).catch(console.error);
+    return success;
   }
 
   async updateCookie(cookie?: ICookieMemento): Promise<void> {
@@ -302,15 +388,17 @@ class PuppeteerSession implements ISession {
 const OWNER_NAME_REGEX = /(https:\/\/)(www\.instagram\.com\/)(.+)(\/)/;
 export default class InstagramAPI implements IInstagramGateway {
   constructor(
+    private readonly logger: Logger,
     private readonly debugging: boolean = false,
     private readonly resourceFilters: ((req: HTTPRequest) => boolean)[] = []
   ) {}
 
-  async initSession(account: IAccount): Promise<ISession> {
+  async initSession(): Promise<ISession> {
     const puppeteer = puppeteerExtra.use(StealthPlugin()).use(AdblockPlugin());
     const browser = await puppeteer.launch({
       headless: !this.debugging,
       executablePath: executablePath(),
+      args: ["--disable-notifications"],
     });
     const page = await browser.newPage();
 
@@ -318,15 +406,15 @@ export default class InstagramAPI implements IInstagramGateway {
     page.on("request", (req) => {
       for (const filter of this.resourceFilters) {
         if (filter(req)) {
-          req.abort();
+          req.abort().catch(console.error);
           return;
         }
       }
 
-      req.continue();
+      req.continue().catch(console.error);
     });
 
-    const session = new PuppeteerSession(account, browser, page);
+    const session = new PuppeteerSession(this.logger, browser, page);
 
     return session;
   }

@@ -1,4 +1,5 @@
 import Cookie from "./cookie";
+import { ILoginProvider } from "./provider";
 
 export interface ICookieMemento {}
 
@@ -7,7 +8,7 @@ export interface ScreenshotOptions {
 }
 
 export default interface ISession {
-  login(): Promise<boolean>;
+  login(provider: ILoginProvider): Promise<boolean>;
 
   /**
    * Replace the cookie of this session with the given cookie
