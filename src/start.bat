@@ -6,12 +6,16 @@ IF %ERRORLEVEL% NEQ 0 GOTO NODENOTFOUND
 
 ::Accept username and password from command arguemnts
 :INPUT_USERNAME
-set /p "user=User Name?>> "
+set /p user="User Name?>> "
 if "%user%"=="" goto INPUT_USERNAME
 
 :INPUT_PASSWORD
-set /p "pass=Password?>> "
+set /p pass="Password?>> "
 if "%pass%"=="" goto INPUT_PASSWORD
+
+:INPUT_GUI
+set /p gui="GUI? (y/n)>> "
+if "%gui%"=="" goto INPUT_GUI
 
 cls
 
@@ -21,11 +25,17 @@ GOTO APP
 :APP
 ECHO Starting application...
 
+::Instal puppeteer
+call npm install puppeteer
+
 ::Start the application
 setlocal 
-    set USER_ID=%user%
-    set PASSWORD=%pass%
-    start node index.js
+    if "%gui%"=="y" (set GUI="true") else (set GUI="false")
+
+    SETLOCAL EnableDelayedExpansion
+    set USER_ID=!user!
+    set PASSWORD=!pass!
+    start node index.js !GUI!
 endlocal
 
 ECHO Closing in 5 seconds...
