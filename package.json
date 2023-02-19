@@ -5,6 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "build": "tsc --build --clean && tsc && tsc-alias",
+    "package:windows": "cp ./src/start.bat ./dist/start.bat",
     "lint": "tsc --noEmit && eslint . --ext .ts --fix"
   },
   "author": "",
