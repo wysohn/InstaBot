@@ -58,7 +58,7 @@ export class LoginRequiredState extends AgentState {
     super(
       buildMap([
         // check login is successful
-        [async (ctx) => !!_(ctx, "session"), () => new KeywordSelectionState()],
+        [async (ctx) => _<ISession>(ctx, "session")?.isValid(), () => new KeywordSelectionState()],
         // otherwise, wait for 5 seconds and try again
         [
           async (ctx) => true,
