@@ -25,8 +25,8 @@ GOTO APP
 :APP
 ECHO Starting application...
 
-::Instal puppeteer
-call npm install puppeteer
+::Instal dependencies
+call npm ci
 
 ::Start the application
 setlocal 
