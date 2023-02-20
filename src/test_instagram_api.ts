@@ -20,7 +20,7 @@ const insta = new InstagramAPI(logger, true, [
   // (req) => req.resourceType() === "media",
 ]);
 
-// const providerType = "facebook"
+// const providerType = "facebook";
 const providerType = "instagram";
 const account: IAccount = {
   principal: { loginId: process.env.USER_ID },
