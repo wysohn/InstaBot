@@ -19,14 +19,18 @@ const insta = new InstagramAPI(logger, true, [
   // (req) => req.resourceType() === "image",
   // (req) => req.resourceType() === "media",
 ]);
+
+// const providerType = "facebook"
+const providerType = "instagram";
 const account: IAccount = {
   principal: { loginId: process.env.USER_ID },
   password: process.env.PASSWORD,
-  providerType: "facebook",
+  providerType: providerType,
 };
 const cookie = new Cookie(new CookieRepository());
 
-const provider: ILoginProvider = new FacebookLogin(account);
+// const provider: ILoginProvider = new FacebookLogin(account);
+const provider: ILoginProvider = new InstagramLogin(account);
 (async () => {
   const session = await insta.initSession();
   await session.updateCookie(await cookie.loadCookie(account));
