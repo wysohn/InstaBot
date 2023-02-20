@@ -57,6 +57,19 @@ async function retry(func: () => Promise<any>, times: number) {
   }
 }
 
+async function findExploreButton(page: Page, message: string): Promise<ElementHandle<Element>> {
+  const exploreButton = await getElementOrUndefined(
+    page,
+    "a[href^='/explore/']"
+  );
+
+  if (!exploreButton) {
+    throw new Error(message);
+  }
+
+  return exploreButton;
+}
+
 export class InstagramUser implements IUser {
   private followed?: boolean = false;
 
@@ -266,14 +279,7 @@ export class InstagramLogin implements ILoginProvider {
 
     await loginWait;
 
-    const exploreButton = await getElementOrUndefined(
-      page,
-      "a[href='/explore/']"
-    );
-
-    if (!exploreButton) {
-      throw new Error("Login failed");
-    }
+    await findExploreButton(page, "Login failed");
 
     return { success: true, reason: "LOGIN_SUCCESS" };
   }
@@ -323,14 +329,7 @@ export class FacebookLogin implements ILoginProvider {
     });
     await loginTransitionWait;
 
-    const exploreButton = await getElementOrUndefined(
-      page,
-      "a[href='/explore/']"
-    );
-
-    if (!exploreButton) {
-      throw new Error("Login failed");
-    }
+    await findExploreButton(page, "Login failed");
 
     return { success: true, reason: "LOGIN_SUCCESS" };
   }
@@ -370,11 +369,7 @@ class PuppeteerSession implements ISession {
   async isValid(): Promise<boolean> {
     await this.page.goto(MAIN_URL);
 
-    const exploreButton = await getElementOrUndefined(
-      this.page,
-      "a[href='/explore/']",
-      { timeout: 5000}
-    );
+    const exploreButton = await findExploreButton(this.page, "Login failed");
 
     return exploreButton !== undefined;
   }
