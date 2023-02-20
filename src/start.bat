@@ -5,10 +5,6 @@ CALL node -v >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 GOTO NODENOTFOUND
 
 ::Accept username and password from command arguemnts
-:LOGIN_TYPE
-set /p login_type="Login type? (i=instagram, f=facebook)>> "
-if "%login_type%"=="" goto LOGIN_TYPE
-
 :INPUT_USERNAME
 set /p user="User Name?>> "
 if "%user%"=="" goto INPUT_USERNAME
@@ -17,9 +13,17 @@ if "%user%"=="" goto INPUT_USERNAME
 set /p pass="Password?>> "
 if "%pass%"=="" goto INPUT_PASSWORD
 
+cls
+
+:LOGIN_TYPE
+set /p login_type="Login type? (i=instagram, f=facebook)>> "
+if "%login_type%"=="" goto LOGIN_TYPE
+
 :INPUT_GUI
 set /p gui="GUI? (y/n)>> "
 if "%gui%"=="" goto INPUT_GUI
+
+cls
 
 ECHO User name: %user%
 GOTO APP
