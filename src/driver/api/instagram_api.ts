@@ -265,9 +265,13 @@ export class InstagramLogin implements ILoginProvider {
     }
 
     await loginWait;
-    const waitElement = await getElementOrUndefined(page, "main");
 
-    if (!waitElement) {
+    const exploreButton = await getElementOrUndefined(
+      page,
+      "a[href='/explore/']"
+    );
+
+    if (!exploreButton) {
       throw new Error("Login failed");
     }
 
@@ -365,15 +369,13 @@ class PuppeteerSession implements ISession {
 
   async isValid(): Promise<boolean> {
     await this.page.goto(MAIN_URL);
-    const articleElement = getElementOrUndefined(this.page, "article");
-    if (!articleElement) return false;
 
-    const passwordField = await getElementOrUndefined(
+    const exploreButton = await getElementOrUndefined(
       this.page,
-      "input[type='password']"
+      "a[href='/explore/']"
     );
 
-    return passwordField === undefined;
+    return exploreButton !== undefined;
   }
 
   async screenshot(options: ScreenshotOptions): Promise<void> {
