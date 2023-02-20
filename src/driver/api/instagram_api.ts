@@ -372,7 +372,8 @@ class PuppeteerSession implements ISession {
 
     const exploreButton = await getElementOrUndefined(
       this.page,
-      "a[href='/explore/']"
+      "a[href='/explore/']",
+      { timeout: 5000}
     );
 
     return exploreButton !== undefined;
