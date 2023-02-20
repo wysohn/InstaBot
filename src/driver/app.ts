@@ -10,6 +10,7 @@ import { ILoginProvider } from "@model/provider";
 import ISession from "@model/session";
 import AgentFactory from "adapter/agent_factory";
 import InstagramAPI, {
+  FacebookLogin,
   InstagramAccount,
   InstagramLogin,
 } from "./api/instagram_api";
@@ -64,10 +65,10 @@ export default class App {
       process.env.LOGIN_PROVIDER
     );
     let provider: ILoginProvider;
-    if (process.env.LOGIN_PROVIDER == "instagram") {
+    if (process.env.LOGIN_PROVIDER === "instagram") {
       provider = new InstagramLogin(account);
-    } else if (process.env.LOGIN_PROVIDER == "facebook") {
-      // provider = new FacebookLogin(account);
+    } else if (process.env.LOGIN_PROVIDER === "facebook") {
+      provider = new FacebookLogin(account);
     } else {
       throw new Error("Unknown login provider: " + process.env.LOGIN_PROVIDER);
     }
