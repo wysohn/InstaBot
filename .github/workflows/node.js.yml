@@ -33,10 +33,20 @@ jobs:
         echo ::set-output name=SOURCE_NAME::${GITHUB_REF#refs/*/}
         echo ::set-output name=SOURCE_BRANCH::${GITHUB_REF#refs/heads/}
         echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
-        
+
+    - name: Archive Name
+      id: archive_name
+      run: echo "ARCHIVE_NAME=${{ format('{0}.zip', steps.branch_name.outputs.SOURCE_TAG) }}" >> $GITHUB_OUTPUT
+
     - name: Archive Release
       uses: thedoctor0/zip-release@0.7.1
       with:
         type: 'zip'
-        filename: ${{ format('{0}.zip', steps.branch_name.outputs.SOURCE_TAG) }}
-        exclusions: '*.git* /*node_modules/* .editorconfig'
+        path: 'dist/'
+        filename: ${{ steps.archive_name.outputs.ARCHIVE_NAME }}
+
+    - name: Upload Release
+      uses: ncipollo/release-action@v1.12.0
+      with:
+        artifacts: ${{ steps.archive_name.outputs.ARCHIVE_NAME }}
+        token: ${{ secrets.GITHUB_TOKEN }}
