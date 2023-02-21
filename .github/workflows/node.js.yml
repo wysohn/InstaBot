@@ -45,8 +45,10 @@ jobs:
         path: 'dist/'
         filename: ${{ steps.archive_name.outputs.ARCHIVE_NAME }}
 
-    - name: Upload Release
-      uses: ncipollo/release-action@v1.12.0
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
       with:
-        artifacts: ${{ steps.archive_name.outputs.ARCHIVE_NAME }}
-        token: ${{ secrets.GITHUB_TOKEN }}
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ steps.archive_name.outputs.ARCHIVE_NAME }}
+        tag: ${{ github.ref }}
+        overwrite: true
