@@ -20,6 +20,7 @@ jobs:
       with:
         node-version: 18.x
         cache: 'npm'
+    - run: npm ci
     - run: npm run package:unix
     - uses: actions/upload-artifact@v3
       with:
