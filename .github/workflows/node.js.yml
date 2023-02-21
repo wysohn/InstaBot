@@ -27,12 +27,9 @@ jobs:
         name: my-artifact
         path: path/to/artifact/ # or path/to/artifact
         
-    - name: Upload binaries to release
-      uses: svenstaro/upload-release-action@v2
-      continue-on-error: true
+    - name: Archive Release
+      uses: thedoctor0/zip-release@0.7.1
       with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: dist/*
-        tag: ${{ github.ref }}
-        overwrite: true
-        file_glob: true
+        type: 'zip'
+        filename: ${{ format('{0}.zip', GITHUB_REF#refs/tags/) }}
+        exclusions: '*.git* /*node_modules/* .editorconfig'
