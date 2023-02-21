@@ -5,8 +5,9 @@
   "main": "index.ts",
   "scripts": {
     "build": "tsc --build --clean && tsc && tsc-alias",
-    "package": "npm run build && npm run package:windows && cp ./package.json ./dist/package.json && cp ./package-lock.json ./dist/package-lock.json",
-    "package:windows": "cp ./src/start.bat ./dist/start.bat",
+    "package": "npm run build && cp ./package.json ./dist/package.json && cp ./package-lock.json ./dist/package-lock.json",
+    "package:windows": "npm run package && cp ./src/start.bat ./dist/start.bat",
+    "package:unix": "npm run package && cp ./src/start.sh ./dist/start.sh",
     "lint": "tsc --noEmit && eslint . --ext .ts --fix"
   },
   "author": "",
